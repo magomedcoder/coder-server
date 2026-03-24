@@ -4,20 +4,72 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ledongthuc/pdf"
 	"github.com/xuri/excelize/v2"
 )
 
+const MaxRecommendedAttachmentSizeBytes = 2 * 1024 * 1024
+
+var ErrUnsupportedAttachmentType = errors.New("неподдерживаемый формат вложения")
+var ErrInvalidTextEncoding = errors.New("текстовый файл должен быть в UTF-8")
+
+var supportedExtensions = map[string]struct{}{
+	".txt":  {},
+	".md":   {},
+	".log":  {},
+	".pdf":  {},
+	".docx": {},
+	".xlsx": {},
+	".csv":  {},
+}
+
+var binaryDocumentExtensions = map[string]struct{}{
+	".pdf":  {},
+	".docx": {},
+	".xlsx": {},
+	".csv":  {},
+}
+
+func IsSupportedExtension(filename string) bool {
+	_, ok := supportedExtensions[normalizeExt(filename)]
+	return ok
+}
+
+func IsBinaryDocument(filename string) bool {
+	_, ok := binaryDocumentExtensions[normalizeExt(filename)]
+	return ok
+}
+
+func ValidateAttachment(filename string, content []byte) error {
+	if !IsSupportedExtension(filename) {
+		return ErrUnsupportedAttachmentType
+	}
+
+	if !IsBinaryDocument(filename) && !utf8.Valid(content) {
+		return ErrInvalidTextEncoding
+	}
+
+	return nil
+}
+
+func normalizeExt(filename string) string {
+	return strings.ToLower(filepath.Ext(strings.TrimSpace(filename)))
+}
+
 func ExtractText(filename string, content []byte) (string, error) {
-	ext := strings.ToLower(filepath.Ext(filename))
+	ext := normalizeExt(filename)
 	switch ext {
+	case ".txt", ".md", ".log":
+		return string(content), nil
 	case ".pdf":
 		return extractPDF(content)
 	case ".docx":
@@ -27,7 +79,7 @@ func ExtractText(filename string, content []byte) (string, error) {
 	case ".csv":
 		return extractCSV(content)
 	default:
-		return string(content), nil
+		return "", ErrUnsupportedAttachmentType
 	}
 }
 
