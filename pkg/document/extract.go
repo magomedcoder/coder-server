@@ -4,14 +4,14 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/csv"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
-	"unicode/utf8"
+	"unicode"
 
 	"github.com/ledongthuc/pdf"
 	"github.com/xuri/excelize/v2"
@@ -19,8 +19,11 @@ import (
 
 const MaxRecommendedAttachmentSizeBytes = 2 * 1024 * 1024
 
+const MaxEmbeddedAttachmentTextRunes = 48_000
+
 var ErrUnsupportedAttachmentType = errors.New("неподдерживаемый формат вложения")
 var ErrInvalidTextEncoding = errors.New("текстовый файл должен быть в UTF-8")
+var ErrTextExtractionFailed = errors.New("не удалось извлечь текст из документа")
 
 var supportedExtensions = map[string]struct{}{
 	".txt":  {},
@@ -54,8 +57,10 @@ func ValidateAttachment(filename string, content []byte) error {
 		return ErrUnsupportedAttachmentType
 	}
 
-	if !IsBinaryDocument(filename) && !utf8.Valid(content) {
-		return ErrInvalidTextEncoding
+	if !IsBinaryDocument(filename) {
+		if _, err := DecodeTextFileToUTF8(content); err != nil {
+			return ErrInvalidTextEncoding
+		}
 	}
 
 	return nil
@@ -69,7 +74,7 @@ func ExtractText(filename string, content []byte) (string, error) {
 	ext := normalizeExt(filename)
 	switch ext {
 	case ".txt", ".md", ".log":
-		return string(content), nil
+		return DecodeTextFileToUTF8(content)
 	case ".pdf":
 		return extractPDF(content)
 	case ".docx":
@@ -118,6 +123,8 @@ func extractPDF(content []byte) (string, error) {
 	return string(data), nil
 }
 
+const wordProcessingML = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
 func extractDOCX(content []byte) (string, error) {
 	zr, err := zip.NewReader(bytes.NewReader(content), int64(len(content)))
 	if err != nil {
@@ -144,16 +151,68 @@ func extractDOCX(content []byte) (string, error) {
 		return "", fmt.Errorf("чтение document.xml: %w", err)
 	}
 
-	re := regexp.MustCompile(`<w:t[^>]*>([^<]*)</w:t>`)
-	matches := re.FindAllStringSubmatch(string(raw), -1)
-	var parts []string
-	for _, m := range matches {
-		if len(m) > 1 && m[1] != "" {
-			parts = append(parts, m[1])
+	return parseWordDocumentXML(raw)
+}
+
+func parseWordDocumentXML(raw []byte) (string, error) {
+	dec := xml.NewDecoder(bytes.NewReader(raw))
+	dec.Strict = false
+
+	var paras []string
+	var curPara strings.Builder
+	inP, inT := false, false
+
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("разбор document.xml: %w", err)
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			if isWNSElem(t.Name, "p") {
+				inP = true
+				curPara.Reset()
+			} else if inP && isWNSElem(t.Name, "t") {
+				inT = true
+			} else if inP && isWNSElem(t.Name, "tab") {
+				curPara.WriteByte('\t')
+			} else if inP && isWNSElem(t.Name, "br") {
+				curPara.WriteByte('\n')
+			}
+		case xml.EndElement:
+			if isWNSElem(t.Name, "t") {
+				inT = false
+			} else if isWNSElem(t.Name, "p") {
+				paras = append(paras, strings.TrimRightFunc(curPara.String(), unicode.IsSpace))
+				inP = false
+				curPara.Reset()
+			}
+		case xml.CharData:
+			if inT && inP {
+				curPara.WriteString(string(t))
+			}
 		}
 	}
 
-	return strings.Join(parts, ""), nil
+	return strings.Join(nonEmptyLines(paras), "\n"), nil
+}
+
+func isWNSElem(name xml.Name, local string) bool {
+	return name.Local == local && (name.Space == wordProcessingML || name.Space == "")
+}
+
+func nonEmptyLines(in []string) []string {
+	var out []string
+	for _, s := range in {
+		if strings.TrimSpace(s) != "" {
+			out = append(out, s)
+		}
+	}
+
+	return out
 }
 
 func extractXLSX(content []byte) (string, error) {
@@ -164,6 +223,8 @@ func extractXLSX(content []byte) (string, error) {
 	defer f.Close()
 
 	var out strings.Builder
+	out.WriteString("Структура: каждая строка таблицы - отдельная строка текста; столбцы в строке разделены табуляцией (TSV).\n\n")
+
 	for _, name := range f.GetSheetList() {
 		rows, err := f.GetRows(name)
 		if err != nil {
@@ -185,20 +246,42 @@ func extractXLSX(content []byte) (string, error) {
 }
 
 func extractCSV(content []byte) (string, error) {
-	r := csv.NewReader(bytes.NewReader(content))
-	r.Comma = detectCSVSeparator(content)
+	text, err := DecodeTextFileToUTF8(content)
+	if err != nil {
+		return "", err
+	}
+	r := csv.NewReader(strings.NewReader(text))
+	r.Comma = detectCSVSeparator([]byte(text))
 	records, err := r.ReadAll()
 	if err != nil {
 		return "", fmt.Errorf("разбор CSV: %w", err)
 	}
 
 	var out strings.Builder
+	out.WriteString("Структура: каждая строка CSV - строка ниже; столбцы разделены табуляцией (после разбора исходного разделителя полей).\n\n")
+
 	for _, row := range records {
 		out.WriteString(strings.Join(row, "\t"))
 		out.WriteString("\n")
 	}
 
 	return strings.TrimSuffix(out.String(), "\n"), nil
+}
+
+func TruncateExtractedText(s string, maxRunes int) (string, bool) {
+	if maxRunes <= 0 || s == "" {
+		return s, false
+	}
+
+	n := 0
+	for i := range s {
+		if n == maxRunes {
+			return s[:i], true
+		}
+		n++
+	}
+
+	return s, false
 }
 
 func detectCSVSeparator(content []byte) rune {
