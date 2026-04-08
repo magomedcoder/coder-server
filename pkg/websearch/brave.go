@@ -114,5 +114,5 @@ func truncateForErr(b []byte, n int) string {
 		return s
 	}
 
-	return s[:n] + "…"
+	return s[:n] + "..."
 }

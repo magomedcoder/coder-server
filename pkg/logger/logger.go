@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -84,9 +85,13 @@ func (l *Logger) output(level int, levelName string, color string, format string
 
 	l.mu.Lock()
 	msg := fmt.Sprintf(format, args...)
-	line := l.prefix + levelName + " " + msg
+	ts := time.Now().Format("2006-01-02 15:04:05")
+	body := l.prefix + levelName + " " + msg
+	var line string
 	if l.useColor && color != "" {
-		line = color + line + ansiReset
+		line = ts + " " + color + body + ansiReset
+	} else {
+		line = ts + " " + body
 	}
 	l.mu.Unlock()
 
