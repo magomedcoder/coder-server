@@ -12,13 +12,13 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/ledongthuc/pdf"
 	"github.com/xuri/excelize/v2"
 )
 
 const MaxRecommendedAttachmentSizeBytes = 2 * 1024 * 1024
-
 const MaxEmbeddedAttachmentTextRunes = 48_000
 
 var ErrUnsupportedAttachmentType = errors.New("неподдерживаемый формат вложения")
@@ -76,65 +76,111 @@ func normalizeExt(filename string) string {
 	return strings.ToLower(filepath.Ext(strings.TrimSpace(filename)))
 }
 
-func ExtractText(filename string, content []byte) (string, error) {
+func ExtractTextForRAG(filename string, content []byte) (text string, pdfPageRuneBounds []int, err error) {
 	ext := normalizeExt(filename)
 	switch ext {
 	case ".txt", ".md", ".log":
-		return DecodeTextFileToUTF8(content)
+		t, e := DecodeTextFileToUTF8(content)
+		return t, nil, e
 	case ".pdf":
-		return extractPDF(content)
+		return extractPDFWithPageBounds(content)
 	case ".docx":
-		return extractDOCX(content)
+		s, e := extractDOCX(content)
+		return s, nil, e
 	case ".xlsx":
-		return extractXLSX(content)
+		s, e := extractXLSX(content)
+		return s, nil, e
 	case ".csv":
-		return extractCSV(content)
+		s, e := extractCSV(content)
+		return s, nil, e
 	case ".pptx":
-		return extractPPTX(content)
+		s, e := extractPPTX(content)
+		return s, nil, e
 	case ".html", ".htm", ".xhtml":
 		text, err := DecodeTextFileToUTF8(content)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
-		return extractHTML([]byte(text))
+		t, e := extractHTML([]byte(text))
+		return t, nil, e
 	default:
-		return "", ErrUnsupportedAttachmentType
+		return "", nil, ErrUnsupportedAttachmentType
 	}
 }
 
-func extractPDF(content []byte) (string, error) {
+func ExtractText(filename string, content []byte) (string, error) {
+	s, _, err := ExtractTextForRAG(filename, content)
+	return s, err
+}
+
+func extractPDFWithPageBounds(content []byte) (string, []int, error) {
 	tmpFile, err := os.CreateTemp("", "gen-pdf-*.pdf")
 	if err != nil {
-		return "", fmt.Errorf("создание временного файла: %w", err)
+		return "", nil, fmt.Errorf("создание временного файла: %w", err)
 	}
 	tmpName := tmpFile.Name()
 	defer os.Remove(tmpName)
 
 	if _, err := tmpFile.Write(content); err != nil {
 		tmpFile.Close()
-		return "", fmt.Errorf("запись во временный файл: %w", err)
+		return "", nil, fmt.Errorf("запись во временный файл: %w", err)
 	}
 	if err := tmpFile.Close(); err != nil {
-		return "", fmt.Errorf("закрытие временного файла: %w", err)
+		return "", nil, fmt.Errorf("закрытие временного файла: %w", err)
 	}
 
 	f, r, err := pdf.Open(tmpName)
 	if err != nil {
-		return "", fmt.Errorf("открытие PDF: %w", err)
+		return "", nil, fmt.Errorf("открытие PDF: %w", err)
 	}
 	defer f.Close()
 
-	reader, err := r.GetPlainText()
-	if err != nil {
-		return "", fmt.Errorf("извлечение текста из PDF: %w", err)
+	pages := r.NumPage()
+	if pages <= 0 {
+		return "", []int{0, 0}, nil
 	}
 
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return "", fmt.Errorf("чтение текста PDF: %w", err)
+	fonts := make(map[string]*pdf.Font)
+	var rawPerPage []string
+	for i := 1; i <= pages; i++ {
+		p := r.Page(i)
+		for _, name := range p.Fonts() {
+			if _, ok := fonts[name]; !ok {
+				ff := p.Font(name)
+				fonts[name] = &ff
+			}
+		}
+
+		text, err := p.GetPlainText(fonts)
+		if err != nil {
+			return "", nil, fmt.Errorf("извлечение текста PDF (стр. %d): %w", i, err)
+		}
+
+		rawPerPage = append(rawPerPage, text)
 	}
 
-	return string(data), nil
+	normPages := make([]string, len(rawPerPage))
+	for i, rp := range rawPerPage {
+		normPages[i] = NormalizeExtractedText(rp)
+	}
+
+	joined := strings.Join(normPages, "\n\n")
+	sep := "\n\n"
+	sepR := utf8.RuneCountInString(sep)
+
+	bounds := make([]int, len(normPages)+1)
+	acc := 0
+	for i, p := range normPages {
+		bounds[i] = acc
+		acc += utf8.RuneCountInString(p)
+		if i < len(normPages)-1 {
+			acc += sepR
+		}
+	}
+
+	bounds[len(normPages)] = acc
+
+	return joined, bounds, nil
 }
 
 const wordProcessingML = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
