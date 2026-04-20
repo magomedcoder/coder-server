@@ -49,6 +49,8 @@ func sourceFormatFromExt(fileName string) string {
 	switch strings.ToLower(filepath.Ext(fileName)) {
 	case ".md", ".markdown":
 		return "markdown"
+	case ".rst":
+		return "rst"
 	case ".pdf":
 		return "pdf"
 	case ".docx":
@@ -57,6 +59,10 @@ func sourceFormatFromExt(fileName string) string {
 		return "html"
 	case ".txt", ".log":
 		return "plain"
+	case ".json":
+		return "json"
+	case ".yaml", ".yml":
+		return "yaml"
 	default:
 		return "other"
 	}
@@ -122,6 +128,8 @@ func paragraphBlocksForSplit(fileName, s string) []textPiece {
 	switch strings.ToLower(filepath.Ext(fileName)) {
 	case ".md", ".markdown":
 		return markdownParagraphBlocks(s)
+	case ".rst":
+		return rstParagraphBlocks(s)
 	default:
 		var out []textPiece
 		for _, p := range splitParagraphs(s) {

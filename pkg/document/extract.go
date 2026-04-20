@@ -3,7 +3,9 @@ package document
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/csv"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/ledongthuc/pdf"
 	"github.com/xuri/excelize/v2"
+	"gopkg.in/yaml.v3"
 )
 
 const MaxRecommendedAttachmentSizeBytes = 2 * 1024 * 1024
@@ -29,7 +32,11 @@ var ErrNoExtractableText = errors.New("в документе нет извлек
 var supportedExtensions = map[string]struct{}{
 	".txt":   {},
 	".md":    {},
+	".rst":   {},
 	".log":   {},
+	".json":  {},
+	".yaml":  {},
+	".yml":   {},
 	".pdf":   {},
 	".docx":  {},
 	".xlsx":  {},
@@ -77,13 +84,25 @@ func normalizeExt(filename string) string {
 }
 
 func ExtractTextForRAG(filename string, content []byte) (text string, pdfPageRuneBounds []int, err error) {
+	return ExtractTextForRAGContext(context.Background(), filename, content)
+}
+
+func ExtractTextForRAGContext(ctx context.Context, filename string, content []byte) (text string, pdfPageRuneBounds []int, err error) {
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
+	}
+
 	ext := normalizeExt(filename)
 	switch ext {
-	case ".txt", ".md", ".log":
+	case ".txt", ".md", ".log", ".rst":
 		t, e := DecodeTextFileToUTF8(content)
 		return t, nil, e
+	case ".json":
+		return extractJSONForRAG(content)
+	case ".yaml", ".yml":
+		return extractYAMLForRAG(content)
 	case ".pdf":
-		return extractPDFWithPageBounds(content)
+		return extractPDFWithPageBounds(ctx, content)
 	case ".docx":
 		s, e := extractDOCX(content)
 		return s, nil, e
@@ -108,12 +127,118 @@ func ExtractTextForRAG(filename string, content []byte) (text string, pdfPageRun
 	}
 }
 
+func extractJSONForRAG(content []byte) (string, []int, error) {
+	content = bytes.TrimSpace(content)
+	if len(content) == 0 {
+		return "", nil, nil
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(content))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		t, e := DecodeTextFileToUTF8(content)
+		return t, nil, e
+	}
+
+	flat := strings.TrimSpace(flattenJSONForRAG(v))
+	if flat == "" {
+		return "", nil, ErrNoExtractableText
+	}
+
+	return flat, nil, nil
+}
+
+func flattenJSONForRAG(v any) string {
+	var parts []string
+	var walk func(any)
+	walk = func(x any) {
+		switch t := x.(type) {
+		case nil:
+			return
+		case string:
+			if s := strings.TrimSpace(t); s != "" {
+				parts = append(parts, s)
+			}
+		case float64, bool:
+			parts = append(parts, strings.TrimSpace(fmt.Sprint(t)))
+		case json.Number:
+			parts = append(parts, strings.TrimSpace(t.String()))
+		case []any:
+			for _, e := range t {
+				walk(e)
+			}
+		case map[string]any:
+			for _, e := range t {
+				walk(e)
+			}
+		default:
+			parts = append(parts, strings.TrimSpace(fmt.Sprint(t)))
+		}
+	}
+
+	walk(v)
+	return strings.Join(parts, "\n")
+}
+
+func extractYAMLForRAG(content []byte) (string, []int, error) {
+	content = bytes.TrimSpace(content)
+	if len(content) == 0 {
+		return "", nil, nil
+	}
+
+	var n yaml.Node
+	if err := yaml.Unmarshal(content, &n); err != nil {
+		t, e := DecodeTextFileToUTF8(content)
+		return t, nil, e
+	}
+
+	flat := strings.TrimSpace(flattenYAMLForRAG(&n))
+	if flat == "" {
+		return "", nil, ErrNoExtractableText
+	}
+
+	return flat, nil, nil
+}
+
+func flattenYAMLForRAG(n *yaml.Node) string {
+	if n == nil {
+		return ""
+	}
+
+	var parts []string
+	var walk func(*yaml.Node)
+	walk = func(node *yaml.Node) {
+		if node == nil {
+			return
+		}
+
+		switch node.Kind {
+		case yaml.DocumentNode, yaml.MappingNode, yaml.SequenceNode:
+			for i := 0; i < len(node.Content); i++ {
+				walk(node.Content[i])
+			}
+		case yaml.ScalarNode:
+			s := strings.TrimSpace(node.Value)
+			if s == "" || s == "null" || s == "~" {
+				return
+			}
+
+			parts = append(parts, s)
+		case yaml.AliasNode:
+			walk(node.Alias)
+		}
+	}
+	walk(n)
+	return strings.Join(parts, "\n")
+}
+
 func ExtractText(filename string, content []byte) (string, error) {
-	s, _, err := ExtractTextForRAG(filename, content)
+	s, _, err := ExtractTextForRAGContext(context.Background(), filename, content)
 	return s, err
 }
 
-func extractPDFWithPageBounds(content []byte) (string, []int, error) {
+func extractPDFWithPageBounds(ctx context.Context, content []byte) (string, []int, error) {
 	tmpFile, err := os.CreateTemp("", "gen-pdf-*.pdf")
 	if err != nil {
 		return "", nil, fmt.Errorf("создание временного файла: %w", err)
@@ -127,6 +252,10 @@ func extractPDFWithPageBounds(content []byte) (string, []int, error) {
 	}
 	if err := tmpFile.Close(); err != nil {
 		return "", nil, fmt.Errorf("закрытие временного файла: %w", err)
+	}
+
+	if err := ctx.Err(); err != nil {
+		return "", nil, err
 	}
 
 	f, r, err := pdf.Open(tmpName)
@@ -143,6 +272,10 @@ func extractPDFWithPageBounds(content []byte) (string, []int, error) {
 	fonts := make(map[string]*pdf.Font)
 	var rawPerPage []string
 	for i := 1; i <= pages; i++ {
+		if err := ctx.Err(); err != nil {
+			return "", nil, err
+		}
+
 		p := r.Page(i)
 		for _, name := range p.Fonts() {
 			if _, ok := fonts[name]; !ok {

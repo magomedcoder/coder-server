@@ -35,6 +35,38 @@ func TestDecodeTextFileToUTF8_BOMand1252(t *testing.T) {
 	}
 }
 
+func TestExtractText_JSON(t *testing.T) {
+	raw := `{"title":"Руководство","items":[{"note":"первый"},{"note":"второй"}]}`
+	got, _, err := ExtractTextForRAG("cfg.json", []byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(got, "Руководство") || !strings.Contains(got, "первый") {
+		t.Fatalf("expected flattened strings, got %q", got)
+	}
+}
+
+func TestExtractText_YAML(t *testing.T) {
+	raw := "title: \"Заголовок\"\nitems:\n  - note: первый\n  - note: второй\n"
+	got, _, err := ExtractTextForRAG("cfg.yaml", []byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(got, "Заголовок") || !strings.Contains(got, "первый") {
+		t.Fatalf("yaml flatten: %q", got)
+	}
+}
+
+func TestExtractText_RST(t *testing.T) {
+	raw := "Заголовок\n=========\n\nТекст секции reStructuredText."
+	got, err := ExtractText("doc.rst", []byte(raw))
+	if err != nil || !strings.Contains(got, "reStructuredText") {
+		t.Fatalf("rst: %v got %q", err, got)
+	}
+}
+
 func TestExtractText_MD(t *testing.T) {
 	want := "# Заголовок\n\nтекст заметки"
 	got, err := ExtractText("note.md", []byte(want))
