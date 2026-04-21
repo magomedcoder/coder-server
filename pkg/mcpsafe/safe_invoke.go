@@ -22,7 +22,7 @@ func SafeToolInvoke(origin, tool string, fn func() (*mcp.CallToolResult, any, er
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("%s: tool=%q panic recovered: %v\n%s", origin, tool, r, debug.Stack())
+			log.Printf("%s: tool=%q phase=handler_panic recovered: %v\n%s", origin, tool, r, debug.Stack())
 			var out mcp.CallToolResult
 			out.SetError(fmt.Errorf("%s: внутренняя ошибка в инструменте %q: %v", origin, tool, r))
 			res = &out
@@ -31,5 +31,14 @@ func SafeToolInvoke(origin, tool string, fn func() (*mcp.CallToolResult, any, er
 		}
 	}()
 
-	return fn()
+	log.Printf("%s: tool=%q phase=handler_enter", origin, tool)
+	res, meta, err = fn()
+	if err != nil {
+		log.Printf("%s: tool=%q phase=handler_return err=%v", origin, tool, err)
+	} else if res != nil && res.IsError {
+		log.Printf("%s: tool=%q phase=handler_return mcp_is_error=true", origin, tool)
+	} else {
+		log.Printf("%s: tool=%q phase=handler_return ok", origin, tool)
+	}
+	return res, meta, err
 }
