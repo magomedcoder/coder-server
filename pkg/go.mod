@@ -13,6 +13,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/xuri/excelize/v2 v2.10.1
 	golang.org/x/crypto v0.50.0
+	golang.org/x/image v0.30.0
 	golang.org/x/net v0.53.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/text v0.36.0
