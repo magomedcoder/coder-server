@@ -90,7 +90,7 @@ func (c *BraveClient) Search(ctx context.Context, query string) (string, error) 
 
 	var parsed braveWebResults
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		return "", fmt.Errorf("разбор ответа Brave: %w", err)
+		return "", fmt.Errorf("разбор responseа Brave: %w", err)
 	}
 
 	var out []Result

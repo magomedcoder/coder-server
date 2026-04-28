@@ -87,7 +87,7 @@ func (c *GoogleCSEClient) Search(ctx context.Context, query string) (string, err
 
 	var parsed googleCSEResponse
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		return "", fmt.Errorf("разбор ответа Google CSE: %w", err)
+		return "", fmt.Errorf("разбор responseа Google CSE: %w", err)
 	}
 
 	var out []Result
