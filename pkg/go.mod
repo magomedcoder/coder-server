@@ -3,13 +3,12 @@ module github.com/magomedcoder/gen
 go 1.26
 
 require (
-	github.com/bmatcuk/doublestar/v4 v4.9.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/jsonschema-go v0.4.2
 	github.com/google/uuid v1.6.0
-	github.com/kljensen/snowball v0.10.0
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/lib/pq v1.12.3
+	github.com/magomedcoder/gen-runner v0.0.0-20260425185600-7b8f0e6a8f70
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/xuri/excelize/v2 v2.10.1
 	golang.org/x/crypto v0.50.0
