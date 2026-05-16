@@ -1,19 +1,24 @@
 package main
 
 import (
+	"github.com/magomedcoder/tce-server/internal/app"
+	"github.com/magomedcoder/tce-server/internal/config"
 	"log"
-
-	"github.com/magomedcoder/tce-server/internal"
 )
 
 func main() {
-	app, err := internal.NewFromEnv()
+	cfg, err := config.Load("config.yaml")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer app.Close()
 
-	if err := app.Run(); err != nil {
+	application, err := app.New(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer application.Close()
+
+	if err := application.Run(); err != nil {
 		log.Fatal(err)
 	}
 }

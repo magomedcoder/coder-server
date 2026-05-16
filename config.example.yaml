@@ -1,0 +1,14 @@
+host: "127.0.0.1"
+port: 8000
+
+runner_addr: "127.0.0.1:50052"
+
+chat:
+  timeout_seconds: 300
+  generate:
+    max_tokens: 1024
+    temperature: 0.2
+
+agent:
+  max_tokens: 2048
+  temperature: 0.1
