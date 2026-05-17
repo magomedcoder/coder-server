@@ -1,0 +1,439 @@
+package llmrunner
+
+import (
+	"context"
+	"fmt"
+	"github.com/magomedcoder/gen/pkg/rpcmeta"
+	"io"
+	"strings"
+	"sync/atomic"
+
+	"github.com/magomedcoder/gen-runner/pb/llmrunnerpb"
+	"github.com/magomedcoder/gen/pkg/document"
+	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/gen/pkg/logger"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+func mapResponseFormatToProto(in *domain.ResponseFormat) *llmrunnerpb.ResponseFormat {
+	if in == nil {
+		return nil
+	}
+	out := &llmrunnerpb.ResponseFormat{
+		Type: in.Type,
+	}
+	if in.Schema != nil {
+		out.Schema = in.Schema
+	}
+	return out
+}
+
+func mapGenerationParamsToProto(in *domain.GenerationParams) *llmrunnerpb.GenerationParams {
+	if in == nil {
+		return nil
+	}
+
+	out := &llmrunnerpb.GenerationParams{
+		ResponseFormat: mapResponseFormatToProto(in.ResponseFormat),
+	}
+
+	if in.Temperature != nil {
+		out.Temperature = in.Temperature
+	}
+
+	if in.MaxTokens != nil {
+		out.MaxTokens = in.MaxTokens
+	}
+
+	if in.TopK != nil {
+		out.TopK = in.TopK
+	}
+
+	if in.TopP != nil {
+		out.TopP = in.TopP
+	}
+
+	if in.EnableThinking != nil {
+		out.EnableThinking = in.EnableThinking
+	}
+
+	if len(in.Tools) > 0 {
+		out.Tools = make([]*llmrunnerpb.Tool, 0, len(in.Tools))
+		for _, t := range in.Tools {
+			out.Tools = append(out.Tools, &llmrunnerpb.Tool{
+				Name:           t.Name,
+				Description:    t.Description,
+				ParametersJson: t.ParametersJSON,
+			})
+		}
+	}
+	return out
+}
+
+type LLMRunnerService struct {
+	client llmrunnerpb.LLMRunnerServiceClient
+	conn   *grpc.ClientConn
+	model  string
+}
+
+func NewLLMRunnerService(address, model string) (*LLMRunnerService, error) {
+	if address == "" {
+		address = "localhost:50052"
+	}
+
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("подключение к gen-runner: %w", err)
+	}
+
+	return &LLMRunnerService{
+		client: llmrunnerpb.NewLLMRunnerServiceClient(conn),
+		conn:   conn,
+		model:  model,
+	}, nil
+}
+
+func (s *LLMRunnerService) Close() error {
+	if s.conn == nil {
+		return nil
+	}
+
+	return s.conn.Close()
+}
+
+func (s *LLMRunnerService) rpcCtx(ctx context.Context) context.Context {
+	return rpcmeta.OutgoingContext(ctx)
+}
+
+func (s *LLMRunnerService) CheckConnection(ctx context.Context) (bool, error) {
+	resp, err := s.client.CheckConnection(s.rpcCtx(ctx), &llmrunnerpb.Empty{})
+	if err != nil {
+		return false, fmt.Errorf("gen-runner CheckConnection: %w", err)
+	}
+
+	return resp.IsConnected, nil
+}
+
+func (s *LLMRunnerService) RunnerProbe(ctx context.Context) (*llmrunnerpb.RunnerProbeResponse, error) {
+	resp, err := s.client.RunnerProbe(s.rpcCtx(ctx), &llmrunnerpb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("gen-runner RunnerProbe: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (s *LLMRunnerService) GetModels(ctx context.Context) ([]string, error) {
+	resp, err := s.client.GetModels(s.rpcCtx(ctx), &llmrunnerpb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("gen-runner GetModels: %w", err)
+	}
+
+	if resp == nil {
+		return nil, nil
+	}
+
+	return resp.Models, nil
+}
+
+func (s *LLMRunnerService) GetGpuInfo(ctx context.Context) (*llmrunnerpb.GetGpuInfoResponse, error) {
+	resp, err := s.client.GetGpuInfo(s.rpcCtx(ctx), &llmrunnerpb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("gen-runner GetGpuInfo: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (s *LLMRunnerService) GetServerInfo(ctx context.Context) (*llmrunnerpb.ServerInfo, error) {
+	resp, err := s.client.GetServerInfo(s.rpcCtx(ctx), &llmrunnerpb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("gen-runner GetServerInfo: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (s *LLMRunnerService) GetLoadedModel(ctx context.Context) (*llmrunnerpb.GetLoadedModelResponse, error) {
+	resp, err := s.client.GetLoadedModel(s.rpcCtx(ctx), &llmrunnerpb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("gen-runner GetLoadedModel: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (s *LLMRunnerService) UnloadModel(ctx context.Context) error {
+	_, err := s.client.UnloadModel(s.rpcCtx(ctx), &llmrunnerpb.Empty{})
+	if err != nil {
+		return fmt.Errorf("gen-runner UnloadModel: %w", err)
+	}
+
+	return nil
+}
+
+func (s *LLMRunnerService) ResetMemory(ctx context.Context) error {
+	_, err := s.client.ResetMemory(s.rpcCtx(ctx), &llmrunnerpb.Empty{})
+	if err != nil {
+		return fmt.Errorf("gen-runner ResetMemory: %w", err)
+	}
+
+	return nil
+}
+
+func (s *LLMRunnerService) SendMessageStream(ctx context.Context, req *llmrunnerpb.SendMessageRequest) (llmrunnerpb.LLMRunnerService_SendMessageClient, error) {
+	stream, err := s.client.SendMessage(s.rpcCtx(ctx), req)
+	if err != nil {
+		return nil, fmt.Errorf("gen-runner SendMessage: %w", err)
+	}
+
+	return stream, nil
+}
+
+func (s *LLMRunnerService) resolveRunnerModel(model string) string {
+	modelName := strings.TrimSpace(model)
+	if modelName == "" || modelName == "default" {
+		modelName = strings.TrimSpace(s.model)
+	}
+
+	if modelName == "default" {
+		modelName = ""
+	}
+
+	return modelName
+}
+
+func (s *LLMRunnerService) Embed(ctx context.Context, model, text string) ([]float32, error) {
+	resp, err := s.client.Embed(s.rpcCtx(ctx), &llmrunnerpb.EmbedRequest{
+		Model: s.resolveRunnerModel(model),
+		Text:  text,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("gen-runner Embed: %w", err)
+	}
+
+	if resp == nil {
+		return nil, nil
+	}
+
+	return resp.Values, nil
+}
+
+func (s *LLMRunnerService) EmbedBatch(ctx context.Context, model string, texts []string) ([][]float32, error) {
+	resp, err := s.client.EmbedBatch(s.rpcCtx(ctx), &llmrunnerpb.EmbedBatchRequest{
+		Model: s.resolveRunnerModel(model),
+		Texts: texts,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("gen-runner EmbedBatch: %w", err)
+	}
+
+	if resp == nil {
+		return nil, nil
+	}
+
+	out := make([][]float32, 0, len(resp.Embeddings))
+	for _, e := range resp.Embeddings {
+		if e == nil {
+			out = append(out, nil)
+			continue
+		}
+
+		out = append(out, e.Values)
+	}
+
+	return out, nil
+}
+
+func (s *LLMRunnerService) SendMessage(
+	ctx context.Context,
+	sessionID int64,
+	model string,
+	messages []*domain.Message,
+	stopSequences []string,
+	timeoutSeconds int32,
+	genParams *domain.GenerationParams,
+) (chan domain.LLMStreamChunk, error) {
+	ch, _, err := s.sendMessageStream(ctx, sessionID, model, messages, stopSequences, timeoutSeconds, genParams)
+	return ch, err
+}
+
+func (s *LLMRunnerService) SendMessageWithRunnerToolAction(
+	ctx context.Context,
+	sessionID int64,
+	model string,
+	messages []*domain.Message,
+	stopSequences []string,
+	timeoutSeconds int32,
+	genParams *domain.GenerationParams,
+) (chan domain.LLMStreamChunk, func() string, error) {
+	nTools := 0
+	if genParams != nil {
+		nTools = len(genParams.Tools)
+	}
+
+	logger.I("Runner gRPC client: phase=SendMessage_stream session_id=%d model=%q tools=%d msgs=%d", sessionID, s.resolveRunnerModel(model), nTools, len(messages))
+	return s.sendMessageStream(ctx, sessionID, model, messages, stopSequences, timeoutSeconds, genParams)
+}
+
+func (s *LLMRunnerService) sendMessageStream(
+	ctx context.Context,
+	sessionID int64,
+	model string,
+	messages []*domain.Message,
+	stopSequences []string,
+	timeoutSeconds int32,
+	genParams *domain.GenerationParams,
+) (chan domain.LLMStreamChunk, func() string, error) {
+	modelName := s.resolveRunnerModel(model)
+	req := &llmrunnerpb.SendMessageRequest{
+		SessionId:        sessionID,
+		Messages:         domainMessagesToProto(messages),
+		Model:            modelName,
+		StopSequences:    stopSequences,
+		GenerationParams: mapGenerationParamsToProto(genParams),
+	}
+	if timeoutSeconds > 0 {
+		req.TimeoutSeconds = &timeoutSeconds
+	}
+
+	if nv := countRunnerVisionAttachments(messages); nv > 0 {
+		logger.I("Runner gRPC client: phase=vision_attachments session_id=%d model=%q messages_with_image_payload=%d", sessionID, modelName, nv)
+	}
+
+	stream, err := s.client.SendMessage(s.rpcCtx(ctx), req)
+	if err != nil {
+		logger.W("Runner gRPC client: phase=grpc_send_err session_id=%d model=%q err=%v", sessionID, modelName, err)
+		return nil, nil, fmt.Errorf("gen-runner SendMessage: %w", err)
+	}
+
+	firstMsg, err := stream.Recv()
+	if err != nil {
+		logger.W("Runner gRPC client: phase=grpc_recv_first_err session_id=%d model=%q err=%v", sessionID, modelName, err)
+		return nil, nil, fmt.Errorf("gen-runner SendMessage: ошибка чтения чанка из потока ответа: %w", err)
+	}
+
+	output := make(chan domain.LLMStreamChunk, 100)
+	var toolBlob atomic.Value
+
+	go func() {
+		defer close(output)
+		current := firstMsg
+		for {
+			if ta := strings.TrimSpace(current.GetToolActionJson()); ta != "" {
+				toolBlob.Store(ta)
+				logger.I("Runner gRPC client: phase=tool_action_chunk session_id=%d model=%q blob_bytes=%d done=%t", sessionID, modelName, len(ta), current.GetDone())
+			}
+
+			content := current.GetContent()
+			rc := current.GetReasoningContent()
+			if content != "" || rc != "" {
+				select {
+				case <-ctx.Done():
+					return
+				case output <- domain.LLMStreamChunk{
+					Content:          content,
+					ReasoningContent: rc,
+				}:
+				}
+			}
+
+			if current.Done {
+				return
+			}
+
+			msg, err := stream.Recv()
+			if err != nil {
+				if err != io.EOF {
+					logger.W("Runner gRPC client: phase=grpc_recv_err session_id=%d model=%q err=%v", sessionID, modelName, err)
+				} else {
+					logger.V("Runner gRPC client: phase=grpc_stream_eof session_id=%d model=%q", sessionID, modelName)
+				}
+
+				return
+			}
+
+			current = msg
+		}
+	}()
+
+	toolFn := func() string {
+		v := toolBlob.Load()
+		if v == nil {
+			return ""
+		}
+
+		s, _ := v.(string)
+		return s
+	}
+
+	return output, toolFn, nil
+}
+
+func countRunnerVisionAttachments(messages []*domain.Message) int {
+	n := 0
+	for _, m := range messages {
+		if m == nil || len(m.AttachmentContent) == 0 {
+			continue
+		}
+
+		mt := strings.ToLower(strings.TrimSpace(m.AttachmentMime))
+		if document.IsAllowedChatImageMIME(mt) || strings.HasPrefix(mt, "image/") {
+			n++
+			continue
+		}
+
+		if mt == "" && document.IsImageAttachment(m.AttachmentName) {
+			n++
+		}
+	}
+
+	return n
+}
+
+func domainMessagesToProto(messages []*domain.Message) []*llmrunnerpb.ChatMessage {
+	out := make([]*llmrunnerpb.ChatMessage, 0, len(messages))
+	for _, m := range messages {
+		if m == nil {
+			continue
+		}
+
+		cm := &llmrunnerpb.ChatMessage{
+			Id:        int64(len(out) + 1),
+			Content:   m.Content,
+			Role:      string(m.Role),
+			CreatedAt: m.CreatedAt.Unix(),
+		}
+
+		if strings.TrimSpace(m.ToolCallID) != "" {
+			v := m.ToolCallID
+			cm.ToolCallId = &v
+		}
+
+		if strings.TrimSpace(m.ToolName) != "" {
+			v := m.ToolName
+			cm.ToolName = &v
+		}
+
+		if strings.TrimSpace(m.ToolCallsJSON) != "" {
+			v := m.ToolCallsJSON
+			cm.ToolCallsJson = &v
+		}
+
+		if n := strings.TrimSpace(m.AttachmentName); n != "" {
+			cm.AttachmentName = &n
+		}
+		if len(m.AttachmentContent) > 0 {
+			cm.AttachmentContent = m.AttachmentContent
+		}
+
+		if mime := strings.TrimSpace(m.AttachmentMime); mime != "" {
+			cm.AttachmentMime = &mime
+		}
+
+		out = append(out, cm)
+	}
+
+	return out
+}
