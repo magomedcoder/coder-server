@@ -151,6 +151,7 @@ type GenerationParams struct {
 	EnableThinking *bool
 	ResponseFormat *ResponseFormat
 	Tools          []Tool
+	RenderedPrompt string
 }
 
 type LLMRepository interface {
@@ -168,16 +169,6 @@ type LLMRepository interface {
 		genParams *GenerationParams,
 	) (chan LLMStreamChunk, error)
 
-	SendMessageWithRunnerToolAction(
-		ctx context.Context,
-		sessionID int64,
-		model string,
-		messages []*Message,
-		stopSequences []string,
-		timeoutSeconds int32,
-		genParams *GenerationParams,
-	) (textChunks chan LLMStreamChunk, runnerToolJSON func() string, err error)
-
 	SendMessageOnRunner(
 		ctx context.Context,
 		runnerListenAddr string,
@@ -188,17 +179,6 @@ type LLMRepository interface {
 		timeoutSeconds int32,
 		genParams *GenerationParams,
 	) (chan LLMStreamChunk, error)
-
-	SendMessageWithRunnerToolActionOnRunner(
-		ctx context.Context,
-		runnerListenAddr string,
-		sessionID int64,
-		model string,
-		messages []*Message,
-		stopSequences []string,
-		timeoutSeconds int32,
-		genParams *GenerationParams,
-	) (textChunks chan LLMStreamChunk, runnerToolJSON func() string, err error)
 
 	Embed(ctx context.Context, model string, text string) ([]float32, error)
 

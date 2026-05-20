@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/magomedcoder/gen-runner/pb/llmrunnerpb"
 	"github.com/magomedcoder/gen/pkg/domain"
 )
 
@@ -85,5 +86,38 @@ func TestDomainMessagesToProto_omitsEmptyAttachmentMime(t *testing.T) {
 
 	if out[0].AttachmentMime != nil {
 		t.Fatalf("ожидали отсутствие optional MIME, got %q", out[0].GetAttachmentMime())
+	}
+}
+
+func TestDomainMessagesToProto_embedsToolFieldsInContent(t *testing.T) {
+	msgs := []*domain.Message{
+		func() *domain.Message {
+			m := domain.NewMessage(1, "tool out", domain.MessageRoleTool)
+			m.ToolCallID = "c1"
+			m.ToolName = "mcp_x"
+			return m
+		}(),
+	}
+
+	out := domainMessagesToProto(msgs)
+	if len(out) != 1 {
+		t.Fatal(len(out))
+	}
+	c := out[0].GetContent()
+	if c == "tool out" || c == "" {
+		t.Fatalf("tool meta must be in content: %q", c)
+	}
+}
+
+func TestApplyRenderedPromptToRequest(t *testing.T) {
+	req := &llmrunnerpb.SendMessageRequest{}
+	applyRenderedPromptToRequest(req, &domain.GenerationParams{RenderedPrompt: "  <|im_start|>user\nhi"})
+	if req.RenderedPrompt == nil || req.GetRenderedPrompt() != "<|im_start|>user\nhi" {
+		t.Fatalf("got %v", req.RenderedPrompt)
+	}
+
+	applyRenderedPromptToRequest(req, &domain.GenerationParams{RenderedPrompt: "   "})
+	if req.RenderedPrompt != nil {
+		t.Fatal("whitespace-only must not set field")
 	}
 }

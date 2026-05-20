@@ -3,17 +3,16 @@ package llmrunner
 import (
 	"context"
 	"fmt"
-	"github.com/magomedcoder/gen/pkg/rpcmeta"
-	"io"
-	"strings"
-	"sync/atomic"
-
 	"github.com/magomedcoder/gen-runner/pb/llmrunnerpb"
 	"github.com/magomedcoder/gen/pkg/document"
 	"github.com/magomedcoder/gen/pkg/domain"
 	"github.com/magomedcoder/gen/pkg/logger"
+	"github.com/magomedcoder/gen/pkg/rpcmeta"
+	"github.com/magomedcoder/gen/pkg/runnerprompt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"io"
+	"strings"
 )
 
 func mapResponseFormatToProto(in *domain.ResponseFormat) *llmrunnerpb.ResponseFormat {
@@ -56,17 +55,6 @@ func mapGenerationParamsToProto(in *domain.GenerationParams) *llmrunnerpb.Genera
 
 	if in.EnableThinking != nil {
 		out.EnableThinking = in.EnableThinking
-	}
-
-	if len(in.Tools) > 0 {
-		out.Tools = make([]*llmrunnerpb.Tool, 0, len(in.Tools))
-		for _, t := range in.Tools {
-			out.Tools = append(out.Tools, &llmrunnerpb.Tool{
-				Name:           t.Name,
-				Description:    t.Description,
-				ParametersJson: t.ParametersJSON,
-			})
-		}
 	}
 	return out
 }
@@ -255,25 +243,11 @@ func (s *LLMRunnerService) SendMessage(
 	timeoutSeconds int32,
 	genParams *domain.GenerationParams,
 ) (chan domain.LLMStreamChunk, error) {
-	ch, _, err := s.sendMessageStream(ctx, sessionID, model, messages, stopSequences, timeoutSeconds, genParams)
-	return ch, err
-}
-
-func (s *LLMRunnerService) SendMessageWithRunnerToolAction(
-	ctx context.Context,
-	sessionID int64,
-	model string,
-	messages []*domain.Message,
-	stopSequences []string,
-	timeoutSeconds int32,
-	genParams *domain.GenerationParams,
-) (chan domain.LLMStreamChunk, func() string, error) {
 	nTools := 0
 	if genParams != nil {
 		nTools = len(genParams.Tools)
 	}
-
-	logger.I("Runner gRPC client: phase=SendMessage_stream session_id=%d model=%q tools=%d msgs=%d", sessionID, s.resolveRunnerModel(model), nTools, len(messages))
+	logger.I("Runner gRPC client: phase=SendMessage_stream session_id=%d model=%q tools_in_prompt=%d msgs=%d", sessionID, s.resolveRunnerModel(model), nTools, len(messages))
 	return s.sendMessageStream(ctx, sessionID, model, messages, stopSequences, timeoutSeconds, genParams)
 }
 
@@ -285,7 +259,7 @@ func (s *LLMRunnerService) sendMessageStream(
 	stopSequences []string,
 	timeoutSeconds int32,
 	genParams *domain.GenerationParams,
-) (chan domain.LLMStreamChunk, func() string, error) {
+) (chan domain.LLMStreamChunk, error) {
 	modelName := s.resolveRunnerModel(model)
 	req := &llmrunnerpb.SendMessageRequest{
 		SessionId:        sessionID,
@@ -297,6 +271,7 @@ func (s *LLMRunnerService) sendMessageStream(
 	if timeoutSeconds > 0 {
 		req.TimeoutSeconds = &timeoutSeconds
 	}
+	applyRenderedPromptToRequest(req, genParams)
 
 	if nv := countRunnerVisionAttachments(messages); nv > 0 {
 		logger.I("Runner gRPC client: phase=vision_attachments session_id=%d model=%q messages_with_image_payload=%d", sessionID, modelName, nv)
@@ -305,27 +280,21 @@ func (s *LLMRunnerService) sendMessageStream(
 	stream, err := s.client.SendMessage(s.rpcCtx(ctx), req)
 	if err != nil {
 		logger.W("Runner gRPC client: phase=grpc_send_err session_id=%d model=%q err=%v", sessionID, modelName, err)
-		return nil, nil, fmt.Errorf("gen-runner SendMessage: %w", err)
+		return nil, fmt.Errorf("gen-runner SendMessage: %w", err)
 	}
 
 	firstMsg, err := stream.Recv()
 	if err != nil {
 		logger.W("Runner gRPC client: phase=grpc_recv_first_err session_id=%d model=%q err=%v", sessionID, modelName, err)
-		return nil, nil, fmt.Errorf("gen-runner SendMessage: ошибка чтения чанка из потока ответа: %w", err)
+		return nil, fmt.Errorf("gen-runner SendMessage: ошибка чтения чанка из потока ответа: %w", err)
 	}
 
 	output := make(chan domain.LLMStreamChunk, 100)
-	var toolBlob atomic.Value
 
 	go func() {
 		defer close(output)
 		current := firstMsg
 		for {
-			if ta := strings.TrimSpace(current.GetToolActionJson()); ta != "" {
-				toolBlob.Store(ta)
-				logger.I("Runner gRPC client: phase=tool_action_chunk session_id=%d model=%q blob_bytes=%d done=%t", sessionID, modelName, len(ta), current.GetDone())
-			}
-
 			content := current.GetContent()
 			rc := current.GetReasoningContent()
 			if content != "" || rc != "" {
@@ -340,6 +309,13 @@ func (s *LLMRunnerService) sendMessageStream(
 			}
 
 			if current.Done {
+				if u := streamUsageFromResponse(current); u != nil {
+					select {
+					case <-ctx.Done():
+						return
+					case output <- domain.LLMStreamChunk{Usage: u}:
+					}
+				}
 				return
 			}
 
@@ -358,17 +334,7 @@ func (s *LLMRunnerService) sendMessageStream(
 		}
 	}()
 
-	toolFn := func() string {
-		v := toolBlob.Load()
-		if v == nil {
-			return ""
-		}
-
-		s, _ := v.(string)
-		return s
-	}
-
-	return output, toolFn, nil
+	return output, nil
 }
 
 func countRunnerVisionAttachments(messages []*domain.Message) int {
@@ -392,9 +358,22 @@ func countRunnerVisionAttachments(messages []*domain.Message) int {
 	return n
 }
 
+func applyRenderedPromptToRequest(req *llmrunnerpb.SendMessageRequest, genParams *domain.GenerationParams) {
+	if req == nil || genParams == nil {
+		return
+	}
+
+	if rp := strings.TrimSpace(genParams.RenderedPrompt); rp != "" {
+		req.RenderedPrompt = &rp
+	} else {
+		req.RenderedPrompt = nil
+	}
+}
+
 func domainMessagesToProto(messages []*domain.Message) []*llmrunnerpb.ChatMessage {
-	out := make([]*llmrunnerpb.ChatMessage, 0, len(messages))
-	for _, m := range messages {
+	prepared := runnerprompt.PrepareMessagesForRunner(messages)
+	out := make([]*llmrunnerpb.ChatMessage, 0, len(prepared))
+	for _, m := range prepared {
 		if m == nil {
 			continue
 		}
@@ -404,21 +383,6 @@ func domainMessagesToProto(messages []*domain.Message) []*llmrunnerpb.ChatMessag
 			Content:   m.Content,
 			Role:      string(m.Role),
 			CreatedAt: m.CreatedAt.Unix(),
-		}
-
-		if strings.TrimSpace(m.ToolCallID) != "" {
-			v := m.ToolCallID
-			cm.ToolCallId = &v
-		}
-
-		if strings.TrimSpace(m.ToolName) != "" {
-			v := m.ToolName
-			cm.ToolName = &v
-		}
-
-		if strings.TrimSpace(m.ToolCallsJSON) != "" {
-			v := m.ToolCallsJSON
-			cm.ToolCallsJson = &v
 		}
 
 		if n := strings.TrimSpace(m.AttachmentName); n != "" {
@@ -436,4 +400,19 @@ func domainMessagesToProto(messages []*domain.Message) []*llmrunnerpb.ChatMessag
 	}
 
 	return out
+}
+
+func streamUsageFromResponse(msg *llmrunnerpb.ChatResponse) *domain.StreamTokenUsage {
+	if msg == nil {
+		return nil
+	}
+	total := msg.GetTotalTokens()
+	if total <= 0 {
+		return nil
+	}
+	return &domain.StreamTokenUsage{
+		PromptTokens:     msg.GetPromptTokens(),
+		CompletionTokens: msg.GetCompletionTokens(),
+		TotalTokens:      total,
+	}
 }

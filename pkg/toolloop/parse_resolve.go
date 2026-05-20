@@ -24,6 +24,7 @@ func SamplingGenParamsForMCP(gp *domain.GenerationParams) *domain.GenerationPara
 	out := *gp
 	out.Tools = nil
 	out.ResponseFormat = nil
+	out.RenderedPrompt = ""
 
 	return &out
 }
@@ -35,6 +36,20 @@ func CloneGenParamsForToolCalls(in *domain.GenerationParams) *domain.GenerationP
 
 	out := *in
 	out.ResponseFormat = nil
+	out.RenderedPrompt = ""
+
+	return &out
+}
+
+func RunnerInferenceParams(in *domain.GenerationParams) *domain.GenerationParams {
+	if in == nil {
+		return nil
+	}
+
+	out := *in
+	out.Tools = nil
+	out.ResponseFormat = nil
+	out.RenderedPrompt = ""
 
 	return &out
 }

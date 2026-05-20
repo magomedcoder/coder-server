@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/gen-runner/pb/llmrunnerpb"
-	"github.com/magomedcoder/gen/api/pb/runnerpb"
 	"github.com/magomedcoder/gen/pkg/domain"
 	"github.com/magomedcoder/gen/pkg/logger"
 	"slices"
@@ -214,18 +213,18 @@ func maxGPUUtil(gpus []*llmrunnerpb.GpuInfo) uint32 {
 	return max
 }
 
-func llmGpusToRunnerPB(in []*llmrunnerpb.GpuInfo) []*runnerpb.GpuInfo {
-	out := make([]*runnerpb.GpuInfo, 0, len(in))
+func gpusFromProto(in []*llmrunnerpb.GpuInfo) []GpuInfo {
+	out := make([]GpuInfo, 0, len(in))
 	for _, g := range in {
 		if g == nil {
 			continue
 		}
 
-		out = append(out, &runnerpb.GpuInfo{
+		out = append(out, GpuInfo{
 			Name:               g.GetName(),
 			TemperatureC:       g.GetTemperatureC(),
-			MemoryTotalMb:      g.GetMemoryTotalMb(),
-			MemoryUsedMb:       g.GetMemoryUsedMb(),
+			MemoryTotalMB:      g.GetMemoryTotalMb(),
+			MemoryUsedMB:       g.GetMemoryUsedMb(),
 			UtilizationPercent: g.GetUtilizationPercent(),
 		})
 	}
@@ -233,52 +232,53 @@ func llmGpusToRunnerPB(in []*llmrunnerpb.GpuInfo) []*runnerpb.GpuInfo {
 	return out
 }
 
-func llmServerToRunnerPB(si *llmrunnerpb.ServerInfo) *runnerpb.ServerInfo {
+func serverFromProto(si *llmrunnerpb.ServerInfo) *ServerInfo {
 	if si == nil {
 		return nil
 	}
 
-	return &runnerpb.ServerInfo{
+	return &ServerInfo{
 		Hostname:      si.GetHostname(),
-		Os:            si.GetOs(),
+		OS:            si.GetOs(),
 		Arch:          si.GetArch(),
-		CpuCores:      si.GetCpuCores(),
-		MemoryTotalMb: si.GetMemoryTotalMb(),
+		CPUCores:      si.GetCpuCores(),
+		MemoryTotalMB: si.GetMemoryTotalMb(),
 		Models:        append([]string(nil), si.GetModels()...),
 	}
 }
 
-func llmLoadedModelToRunnerPB(in *llmrunnerpb.GetLoadedModelResponse) *runnerpb.LoadedModelStatus {
+func loadedModelFromProto(in *llmrunnerpb.GetLoadedModelResponse) *LoadedModelStatus {
 	if in == nil {
 		return nil
 	}
 
-	return &runnerpb.LoadedModelStatus{
+	return &LoadedModelStatus{
 		Loaded:       in.GetLoaded(),
 		DisplayName:  in.GetDisplayName(),
-		GgufBasename: in.GetGgufBasename(),
+		GGUFBasename: in.GetGgufBasename(),
 	}
 }
 
-func (p *Pool) ProbeLLMRunner(ctx context.Context, address string) (connected bool, gpus []*runnerpb.GpuInfo, server *runnerpb.ServerInfo, loaded *runnerpb.LoadedModelStatus) {
+func (p *Pool) ProbeLLMRunner(ctx context.Context, address string) RunnerProbeResult {
 	c, err := p.getClient(address)
 	if err != nil {
-		return false, nil, nil, nil
+		return RunnerProbeResult{}
 	}
 
 	pr, err := c.RunnerProbe(ctx)
 	if err != nil {
-		return false, nil, nil, nil
+		return RunnerProbeResult{}
 	}
 	if pr == nil || !pr.GetBackendConnected() {
-		return false, nil, nil, nil
+		return RunnerProbeResult{}
 	}
 
-	gpus = llmGpusToRunnerPB(pr.GetGpus())
-	server = llmServerToRunnerPB(pr.GetServer())
-	loaded = llmLoadedModelToRunnerPB(pr.GetLoadedModel())
-
-	return true, gpus, server, loaded
+	return RunnerProbeResult{
+		Connected:   true,
+		Gpus:        gpusFromProto(pr.GetGpus()),
+		Server:      serverFromProto(pr.GetServer()),
+		LoadedModel: loadedModelFromProto(pr.GetLoadedModel()),
+	}
 }
 
 func (p *Pool) WaitRunnerIdle(ctx context.Context, address string) error {
@@ -627,38 +627,6 @@ func (p *Pool) SendMessage(
 	return forwardStream(ch, ai), nil
 }
 
-func (p *Pool) SendMessageWithRunnerToolAction(
-	ctx context.Context,
-	sessionID int64,
-	model string,
-	messages []*domain.Message,
-	stopSequences []string,
-	timeoutSeconds int32,
-	genParams *domain.GenerationParams,
-) (chan domain.LLMStreamChunk, func() string, error) {
-	client, addr, err := p.pickRunner(ctx, model)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	nTools := 0
-	if genParams != nil {
-		nTools = len(genParams.Tools)
-	}
-
-	logger.I("Runner pool: phase=tool_stream_start session_id=%d model=%q runner=%q tools=%d msgs=%d", sessionID, model, addr, nTools, len(messages))
-
-	ai := p.getOrCreateInflight(addr)
-	ai.Add(1)
-	ch, toolFn, err := client.SendMessageWithRunnerToolAction(ctx, sessionID, model, messages, stopSequences, timeoutSeconds, genParams)
-	if err != nil {
-		ai.Add(-1)
-		return nil, nil, err
-	}
-
-	return forwardStream(ch, ai), toolFn, nil
-}
-
 func (p *Pool) SendMessageOnRunner(
 	ctx context.Context,
 	runnerAddr string,
@@ -688,44 +656,6 @@ func (p *Pool) SendMessageOnRunner(
 	}
 
 	return forwardStream(ch, ai), nil
-}
-
-func (p *Pool) SendMessageWithRunnerToolActionOnRunner(
-	ctx context.Context,
-	runnerAddr string,
-	sessionID int64,
-	model string,
-	messages []*domain.Message,
-	stopSequences []string,
-	timeoutSeconds int32,
-	genParams *domain.GenerationParams,
-) (chan domain.LLMStreamChunk, func() string, error) {
-	runnerAddr = strings.TrimSpace(runnerAddr)
-	if runnerAddr == "" {
-		return nil, nil, fmt.Errorf("runner address is empty")
-	}
-
-	client, err := p.getClient(runnerAddr)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	nTools := 0
-	if genParams != nil {
-		nTools = len(genParams.Tools)
-	}
-
-	logger.I("Runner pool: phase=tool_stream_start session_id=%d model=%q runner=%q tools=%d msgs=%d (explicit runner)", sessionID, model, runnerAddr, nTools, len(messages))
-
-	ai := p.getOrCreateInflight(runnerAddr)
-	ai.Add(1)
-	ch, toolFn, err := client.SendMessageWithRunnerToolAction(ctx, sessionID, model, messages, stopSequences, timeoutSeconds, genParams)
-	if err != nil {
-		ai.Add(-1)
-		return nil, nil, err
-	}
-
-	return forwardStream(ch, ai), toolFn, nil
 }
 
 func (p *Pool) Embed(ctx context.Context, model string, text string) ([]float32, error) {

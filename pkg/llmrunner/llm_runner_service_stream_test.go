@@ -37,7 +37,7 @@ func (m *mockStreamRunner) SendMessage(req *llmrunnerpb.SendMessageRequest, stre
 	return nil
 }
 
-func TestSendMessageWithRunnerToolAction_bufconn_visionRequestAndStream(t *testing.T) {
+func TestSendMessage_bufconn_visionRequestAndStream(t *testing.T) {
 	img := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00}
 	mime := "image/png"
 	name := "shot.png"
@@ -71,9 +71,8 @@ func TestSendMessageWithRunnerToolAction_bufconn_visionRequestAndStream(t *testi
 				Done:    false,
 			},
 			{
-				Content:        "png",
-				Done:           false,
-				ToolActionJson: new(`[]`),
+				Content: "png",
+				Done:    false,
 			},
 			{
 				Content: "",
@@ -124,7 +123,7 @@ func TestSendMessageWithRunnerToolAction_bufconn_visionRequestAndStream(t *testi
 		},
 	}
 
-	ch, toolFn, err := runner.SendMessageWithRunnerToolAction(ctx, 7, "m", domainMsgs, nil, 30, nil)
+	ch, err := runner.SendMessage(ctx, 7, "m", domainMsgs, nil, 30, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,9 +135,5 @@ func TestSendMessageWithRunnerToolAction_bufconn_visionRequestAndStream(t *testi
 
 	if got != "вижу png" {
 		t.Fatalf("streamed content: %q", got)
-	}
-
-	if toolFn == nil || toolFn() != `[]` {
-		t.Fatalf("tool blob: %q", toolFn())
 	}
 }

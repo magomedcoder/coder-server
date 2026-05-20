@@ -5,7 +5,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/magomedcoder/gen/api/pb/runnerpb"
 	"github.com/magomedcoder/gen/pkg/domain"
 	"github.com/magomedcoder/gen/pkg/logger"
 )
@@ -120,19 +119,19 @@ func (r *Registry) Unregister(addr string) {
 	}
 }
 
-func (r *Registry) GetRunners() []*runnerpb.RunnerInfo {
+func (r *Registry) ListRunners() []RunnerInfo {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	out := make([]*runnerpb.RunnerInfo, 0, len(r.runners))
+	out := make([]RunnerInfo, 0, len(r.runners))
 	for _, state := range r.runners {
-		out = append(out, &runnerpb.RunnerInfo{
+		out = append(out, RunnerInfo{
+			ID:            state.ID,
 			Address:       state.Address,
-			Enabled:       state.Enabled,
-			Name:          state.Name,
-			Id:            state.ID,
 			Host:          state.Host,
 			Port:          state.Port,
+			Name:          state.Name,
+			Enabled:       state.Enabled,
 			SelectedModel: state.SelectedModel,
 		})
 	}

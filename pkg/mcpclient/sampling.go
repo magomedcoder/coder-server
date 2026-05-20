@@ -37,9 +37,22 @@ type SamplingRunner struct {
 	SessionID      int64
 	RunnerAddr     string
 	Model          string
+	SamplingModel  string
 	StopSequences  []string
 	TimeoutSeconds int32
 	GenParams      *domain.GenerationParams
+}
+
+func samplingModelFor(sr *SamplingRunner) string {
+	if sr == nil {
+		return ""
+	}
+
+	if m := strings.TrimSpace(sr.SamplingModel); m != "" {
+		return m
+	}
+
+	return strings.TrimSpace(sr.Model)
 }
 
 func WithSamplingRunner(ctx context.Context, sr *SamplingRunner) context.Context {
@@ -134,9 +147,10 @@ func (sr *SamplingRunner) runCompletion(ctx context.Context, msgs []*domain.Mess
 		stops = append(append([]string{}, stops...), extraStops...)
 	}
 
-	logger.I("MCP sampling: phase=llm_request session_id=%d model=%q runner=%q msgs=%d max_tokens=%d temp=%.4f stops=%d", sr.SessionID, sr.Model, sr.RunnerAddr, len(msgs), maxTokens, temperature, len(stops))
+	model := samplingModelFor(sr)
+	logger.I("MCP sampling: phase=llm_request session_id=%d model=%q runner=%q msgs=%d max_tokens=%d temp=%.4f stops=%d", sr.SessionID, model, sr.RunnerAddr, len(msgs), maxTokens, temperature, len(stops))
 
-	ch, err := sr.LLM.SendMessageOnRunner(ctx, sr.RunnerAddr, sr.SessionID, sr.Model, msgs, stops, sr.TimeoutSeconds, &gp)
+	ch, err := sr.LLM.SendMessageOnRunner(ctx, sr.RunnerAddr, sr.SessionID, model, msgs, stops, sr.TimeoutSeconds, &gp)
 	if err != nil {
 		logger.W("MCP sampling: phase=llm_request_err session_id=%d err=%v", sr.SessionID, err)
 		return "", err

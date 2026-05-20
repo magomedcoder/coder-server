@@ -23,6 +23,7 @@ type loopEnvKey struct{}
 type LoopEnv struct {
 	RunnerAddr             string
 	ResolvedModel          string
+	SamplingModel          string
 	StopSequences          []string
 	TimeoutSeconds         int32
 	SamplingGen            *domain.GenerationParams
