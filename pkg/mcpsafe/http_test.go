@@ -21,7 +21,7 @@ func TestRecoverPanic_PassesThroughOK(t *testing.T) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusTeapot {
-		t.Fatalf("status: got %d want %d", resp.StatusCode, http.StatusTeapot)
+		t.Fatalf("статус: получено %d ожидалось %d", resp.StatusCode, http.StatusTeapot)
 	}
 }
 
@@ -40,7 +40,7 @@ func TestRecoverPanic_SecondRequestAfterPanicStillWorks(t *testing.T) {
 
 	_, err := http.Get(srv.URL)
 	if err != nil {
-		t.Logf("first request after handler panic (expected flaky): %v", err)
+		t.Logf("первый запрос после panic обработчика (допустимо flaky): %v", err)
 	}
 
 	resp, err := http.Get(srv.URL)
@@ -50,7 +50,7 @@ func TestRecoverPanic_SecondRequestAfterPanicStillWorks(t *testing.T) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("second request: got status %d", resp.StatusCode)
+		t.Fatalf("второй запрос: получено статус %d", resp.StatusCode)
 	}
 }
 
@@ -61,7 +61,7 @@ func TestRecoverPanic_EmptyOriginUsesDefault(t *testing.T) {
 
 	h := RecoverPanic("   ", inner)
 	if h == nil {
-		t.Fatal("expected non-nil handler")
+		t.Fatal("ожидалось обработчик не nil")
 	}
 	srv := httptest.NewServer(h)
 
@@ -74,6 +74,6 @@ func TestRecoverPanic_EmptyOriginUsesDefault(t *testing.T) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("status: %d", resp.StatusCode)
+		t.Fatalf("статус: %d", resp.StatusCode)
 	}
 }

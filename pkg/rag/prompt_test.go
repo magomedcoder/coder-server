@@ -58,10 +58,10 @@ func TestFormatSourceCitation(t *testing.T) {
 
 	got := FormatSourceCitation(meta)
 	if !strings.Contains(got, "раздел=«Глава 1 > Раздел 2»") {
-		t.Fatalf("missing heading citation: %q", got)
+		t.Fatalf("отсутствует heading citation: %q", got)
 	}
 
 	if !strings.Contains(got, "стр.=3–5") {
-		t.Fatalf("missing page citation: %q", got)
+		t.Fatalf("отсутствует page citation: %q", got)
 	}
 }

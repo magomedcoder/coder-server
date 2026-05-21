@@ -26,12 +26,12 @@ func TestResolveDeclaredToolNameBareMCPMatchesHexAlias(t *testing.T) {
 
 	got, ok := ResolveDeclaredToolName(gp, orig)
 	if !ok || got != NormalizeToolName(alias) {
-		t.Fatalf("resolve bare name: ok=%v got=%q want=%q", ok, got, NormalizeToolName(alias))
+		t.Fatalf("resolve bare name: ok=%v получено=%q ожидалось=%q", ok, got, NormalizeToolName(alias))
 	}
 
 	got2, ok2 := ResolveDeclaredToolName(gp, alias)
 	if !ok2 || got2 != NormalizeToolName(alias) {
-		t.Fatalf("resolve full alias: ok=%v got=%q", ok2, got2)
+		t.Fatalf("resolve full alias: ok=%v получено=%q", ok2, got2)
 	}
 }
 
@@ -54,7 +54,7 @@ func TestResolveDeclaredToolNameAmbiguousBarePicksLowerServerID(t *testing.T) {
 
 	got, ok := ResolveDeclaredToolName(gp, orig)
 	if !ok || got != NormalizeToolName(a1) {
-		t.Fatalf("want server 1 first, got ok=%v %q", ok, got)
+		t.Fatalf("ожидался server 1 первым, ok=%v получено=%q", ok, got)
 	}
 }
 
@@ -77,7 +77,7 @@ func TestResolveDeclaredToolNameFullAliasKeepsRequestedServer(t *testing.T) {
 
 	got, ok := ResolveDeclaredToolName(gp, a2)
 	if !ok || got != NormalizeToolName(a2) {
-		t.Fatalf("full alias must keep exact server alias: ok=%v got=%q want=%q", ok, got, NormalizeToolName(a2))
+		t.Fatalf("full alias должно сохранять exact сервер alias: ok=%v получено=%q ожидалось=%q", ok, got, NormalizeToolName(a2))
 	}
 }
 
@@ -92,7 +92,7 @@ func TestResolveDeclaredToolNameUnknown(t *testing.T) {
 	}
 
 	if _, ok := ResolveDeclaredToolName(gp, "nonexistent_tool_xyz"); ok {
-		t.Fatal("expected no match")
+		t.Fatal("ожидалось отсутствие совпадения")
 	}
 }
 
@@ -110,7 +110,7 @@ func TestResolveDeclaredToolNameRecoversWrongHexWhenSingleToolOnServer(t *testin
 	hallucinated := "mcp_1_h1234567890abcdef"
 	got, ok := ResolveDeclaredToolName(gp, hallucinated)
 	if !ok || got != NormalizeToolName(canon) {
-		t.Fatalf("recover single MCP tool on server: ok=%v got=%q want=%q", ok, got, NormalizeToolName(canon))
+		t.Fatalf("recover single MCP tool on сервер: ok=%v получено=%q ожидалось=%q", ok, got, NormalizeToolName(canon))
 	}
 }
 
@@ -130,6 +130,6 @@ func TestResolveDeclaredToolNameNoRecoverWhenTwoToolsOnSameServer(t *testing.T) 
 		},
 	}
 	if _, ok := ResolveDeclaredToolName(gp, "mcp_1_h1234567890abcdef"); ok {
-		t.Fatal("ambiguous server_id=1: must not guess tool from fake hex")
+		t.Fatal("неоднозначно server_id=1: не должно guess tool from fake hex")
 	}
 }

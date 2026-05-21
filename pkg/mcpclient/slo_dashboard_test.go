@@ -18,7 +18,7 @@ func TestMCPServerSLODashboardIncludesActiveServersWithoutTraffic(t *testing.T) 
 
 	rows := MCPServerSLODashboard()
 	if len(rows) == 0 {
-		t.Fatal("expected non-empty dashboard")
+		t.Fatal("ожидалось непустой dashboard")
 	}
 
 	var found bool
@@ -34,7 +34,7 @@ func TestMCPServerSLODashboardIncludesActiveServersWithoutTraffic(t *testing.T) 
 	}
 
 	if !found {
-		t.Fatal("active server from catalog is отсутствует in dashboard")
+		t.Fatal("active сервер из каталога отсутствует в dashboard")
 	}
 }
 

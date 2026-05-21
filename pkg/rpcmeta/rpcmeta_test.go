@@ -17,7 +17,7 @@ func TestEnsureTraceInContext_generatesWhenMissing(t *testing.T) {
 	out := OutgoingContext(ctx)
 	md, _ := metadata.FromOutgoingContext(out)
 	if len(md.Get(MDTraceID)) != 1 || md.Get(MDTraceID)[0] != id {
-		t.Fatalf("metadata: %+v", md)
+		t.Fatalf("метаданные: %+v", md)
 	}
 }
 
@@ -26,6 +26,6 @@ func TestIncomingTraceID(t *testing.T) {
 	ctx := metadata.NewIncomingContext(context.Background(), md)
 	ctx = EnsureTraceInContext(ctx)
 	if TraceIDFromContext(ctx) != "abc" {
-		t.Fatalf("got %q", TraceIDFromContext(ctx))
+		t.Fatalf("получено %q", TraceIDFromContext(ctx))
 	}
 }

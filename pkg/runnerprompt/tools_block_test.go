@@ -14,6 +14,6 @@ func TestBuildToolsInvocationBlock_containsFormatHint(t *testing.T) {
 		ParametersJSON: `{"type":"object"}`,
 	}})
 	if !strings.Contains(block, "web_search") || !strings.Contains(block, "tool_name") {
-		t.Fatalf("unexpected block: %q", block)
+		t.Fatalf("неожиданный блок: %q", block)
 	}
 }

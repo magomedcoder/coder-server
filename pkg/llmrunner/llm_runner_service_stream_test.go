@@ -91,7 +91,7 @@ func TestSendMessage_bufconn_visionRequestAndStream(t *testing.T) {
 
 	go func() {
 		if err := srv.Serve(lis); err != nil {
-			t.Logf("grpc Serve: %v", err)
+			t.Logf("grpc Serve завершился: %v", err)
 		}
 	}()
 	t.Cleanup(func() { srv.Stop() })
@@ -138,6 +138,6 @@ func TestSendMessage_bufconn_visionRequestAndStream(t *testing.T) {
 	}
 
 	if got != "вижу png" {
-		t.Fatalf("streamed content: %q", got)
+		t.Fatalf("контент стрима: %q", got)
 	}
 }

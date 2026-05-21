@@ -8,7 +8,7 @@ import (
 func TestConnect_requiresEndpoint(t *testing.T) {
 	_, err := Connect(context.Background(), Config{})
 	if err == nil {
-		t.Fatal("expected error")
+		t.Fatal("ожидалась ошибка")
 	}
 }
 
@@ -27,6 +27,6 @@ func TestConnect_buildsRegistry(t *testing.T) {
 	}
 
 	if r.LLM == nil || r.Pool == nil || r.Registry == nil {
-		t.Fatal("nil components")
+		t.Fatal("компоненты nil")
 	}
 }

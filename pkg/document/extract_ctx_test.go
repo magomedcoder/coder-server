@@ -11,10 +11,10 @@ func TestExtractTextForRAGContextAlreadyCanceled(t *testing.T) {
 
 	_, _, err := ExtractTextForRAGContext(ctx, "x.txt", []byte("hello"))
 	if err == nil {
-		t.Fatal("expected ctx error")
+		t.Fatal("ожидалось ошибка ctx")
 	}
 
 	if err != context.Canceled {
-		t.Fatalf("expected canceled, got %v", err)
+		t.Fatalf("ожидалось отменено, получено %v", err)
 	}
 }

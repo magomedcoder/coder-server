@@ -62,7 +62,7 @@ func TestCountRunnerVisionAttachments(t *testing.T) {
 			AttachmentContent: []byte{3},
 		},
 	}); n != 2 {
-		t.Fatalf("ожидали 2 (png + legacy по имени), got %d", n)
+		t.Fatalf("ожидали 2 (png + legacy по имени), получено %d", n)
 	}
 }
 
@@ -85,7 +85,7 @@ func TestDomainMessagesToProto_omitsEmptyAttachmentMime(t *testing.T) {
 	}
 
 	if out[0].AttachmentMime != nil {
-		t.Fatalf("ожидали отсутствие optional MIME, got %q", out[0].GetAttachmentMime())
+		t.Fatalf("ожидали отсутствие optional MIME, получено %q", out[0].GetAttachmentMime())
 	}
 }
 
@@ -105,7 +105,7 @@ func TestDomainMessagesToProto_embedsToolFieldsInContent(t *testing.T) {
 	}
 	c := out[0].GetContent()
 	if c == "tool out" || c == "" {
-		t.Fatalf("tool meta must be in content: %q", c)
+		t.Fatalf("meta tool должна быть в content: %q", c)
 	}
 }
 
@@ -113,11 +113,11 @@ func TestApplyRenderedPromptToRequest(t *testing.T) {
 	req := &llmrunnerpb.SendMessageRequest{}
 	applyRenderedPromptToRequest(req, &domain.GenerationParams{RenderedPrompt: "  <|im_start|>user\nhi"})
 	if req.RenderedPrompt == nil || req.GetRenderedPrompt() != "<|im_start|>user\nhi" {
-		t.Fatalf("got %v", req.RenderedPrompt)
+		t.Fatalf("получено %v", req.RenderedPrompt)
 	}
 
 	applyRenderedPromptToRequest(req, &domain.GenerationParams{RenderedPrompt: "   "})
 	if req.RenderedPrompt != nil {
-		t.Fatal("whitespace-only must not set field")
+		t.Fatal("только пробелы — поле не должно устанавливаться")
 	}
 }

@@ -12,37 +12,37 @@ func TestBuildSessionHints_containsServerAndAliasGuidance(t *testing.T) {
 		{ID: 9, Name: "Demo", Enabled: true},
 	})
 	if !strings.Contains(got, "id=9 · Demo") {
-		t.Fatalf("missing server line: %q", got)
+		t.Fatalf("отсутствует строка сервера: %q", got)
 	}
 	if !strings.Contains(got, "mcp_<id>_h<hex>") {
-		t.Fatalf("missing alias guidance: %q", got)
+		t.Fatalf("отсутствует подсказка alias: %q", got)
 	}
 	if strings.Contains(got, "gen_mcp_") {
-		t.Fatalf("must not mention gen_mcp_*: %q", got)
+		t.Fatalf("не должно быть gen_mcp_*: %q", got)
 	}
 }
 
 func TestBuildSessionHints_empty(t *testing.T) {
 	if BuildSessionHints(nil) != "" {
-		t.Fatal("expected empty for nil entries")
+		t.Fatal("ожидалась пустота для nil entries")
 	}
 }
 
 func TestBuildToolCatalog(t *testing.T) {
 	if got := BuildToolCatalog(nil); got != "" {
-		t.Fatalf("expected empty, got %q", got)
+		t.Fatalf("ожидалась пустота, получено %q", got)
 	}
 	got := BuildToolCatalog([]domain.Tool{{Name: "web_search"}})
 	if !strings.Contains(got, "web_search") {
-		t.Fatalf("missing tool name: %q", got)
+		t.Fatalf("отсутствует имя tool: %q", got)
 	}
 }
 
 func TestAppendBlock(t *testing.T) {
 	if got := AppendBlock("base", "extra"); got != "base\n\nextra" {
-		t.Fatalf("got %q", got)
+		t.Fatalf("получено %q", got)
 	}
 	if got := AppendBlock("base", ""); got != "base" {
-		t.Fatalf("got %q", got)
+		t.Fatalf("получено %q", got)
 	}
 }

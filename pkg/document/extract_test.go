@@ -14,11 +14,11 @@ import (
 func TestTruncateExtractedText(t *testing.T) {
 	s, cut := TruncateExtractedText("абвг", 2)
 	if cut != true || s != "аб" {
-		t.Fatalf("expected truncated аб, got %q cut=%v", s, cut)
+		t.Fatalf("ожидалось обрезанный аб, получено %q cut=%v", s, cut)
 	}
 	s, cut = TruncateExtractedText("hi", 10)
 	if cut || s != "hi" {
-		t.Fatalf("unexpected truncation: %q %v", s, cut)
+		t.Fatalf("неожиданное обрезка: %q %v", s, cut)
 	}
 }
 
@@ -43,7 +43,7 @@ func TestExtractText_JSON(t *testing.T) {
 	}
 
 	if !strings.Contains(got, "Руководство") || !strings.Contains(got, "первый") {
-		t.Fatalf("expected flattened strings, got %q", got)
+		t.Fatalf("ожидалось сплющенные строки, получено %q", got)
 	}
 }
 
@@ -63,7 +63,7 @@ func TestExtractText_RST(t *testing.T) {
 	raw := "Заголовок\n=========\n\nТекст секции reStructuredText."
 	got, err := ExtractText("doc.rst", []byte(raw))
 	if err != nil || !strings.Contains(got, "reStructuredText") {
-		t.Fatalf("rst: %v got %q", err, got)
+		t.Fatalf("rst: %v получено %q", err, got)
 	}
 }
 
@@ -71,7 +71,7 @@ func TestExtractText_MD(t *testing.T) {
 	want := "# Заголовок\n\nтекст заметки"
 	got, err := ExtractText("note.md", []byte(want))
 	if err != nil || got != want {
-		t.Fatalf("md: %v got %q want %q", err, got, want)
+		t.Fatalf("md: %v получено %q ожидалось %q", err, got, want)
 	}
 }
 
@@ -81,7 +81,7 @@ func TestExtractText_CSV(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.HasPrefix(got, "Структура:") {
-		t.Fatalf("expected table preamble, got %q", got)
+		t.Fatalf("ожидалось преамбула таблицы, получено %q", got)
 	}
 	if !strings.Contains(got, "кол1\tкол2") || !strings.Contains(got, "10\t20") {
 		t.Fatalf("неожиданные строки tsv: %q", got)
@@ -101,7 +101,7 @@ func TestParseWordDocumentXML_paragraphsAndSplitRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 	if want := "Привет\nПривет"; got != want {
-		t.Fatalf("got %q want %q", got, want)
+		t.Fatalf("получено %q, ожидалось %q", got, want)
 	}
 }
 
@@ -112,7 +112,7 @@ func TestExtractText_DOCX_minimalZip(t *testing.T) {
 		t.Fatal(err)
 	}
 	if want := "Первая строка\nВторая строка"; got != want {
-		t.Fatalf("got %q want %q", got, want)
+		t.Fatalf("получено %q, ожидалось %q", got, want)
 	}
 }
 
@@ -141,10 +141,10 @@ func TestExtractText_HTML(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(got, "Первый") || !strings.Contains(got, "абзац") || !strings.Contains(got, "Второй") {
-		t.Fatalf("expected visible text, got %q", got)
+		t.Fatalf("ожидалось видимый текст, получено %q", got)
 	}
 	if strings.Contains(got, "alert") || strings.Contains(got, "display:none") {
-		t.Fatalf("script/style leaked: %q", got)
+		t.Fatalf("утечка script/style: %q", got)
 	}
 }
 
@@ -155,7 +155,7 @@ func TestExtractText_PPTX_minimalZip(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(got, "[Слайд 1]") || !strings.Contains(got, "Текст слайда") {
-		t.Fatalf("got %q", got)
+		t.Fatalf("получено %q", got)
 	}
 }
 
@@ -176,7 +176,7 @@ func TestExtractText_XLSX(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.HasPrefix(got, "Структура:") {
-		t.Fatalf("expected preamble: %q", got)
+		t.Fatalf("ожидалось преамбула: %q", got)
 	}
 	if !strings.Contains(got, "столбец1\tстолбец2") {
 		t.Fatalf("ожидалась строка с табуляцией: %q", got)
@@ -198,7 +198,7 @@ func TestGoldenFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got != string(golden) {
-		t.Fatalf("golden mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, golden)
+		t.Fatalf("golden несовпадение:\n--- получено ---\n%s\n--- ожидалось ---\n%s", got, golden)
 	}
 }
 

@@ -30,7 +30,7 @@ func TestLastUserMessageHasVisionAttachment(t *testing.T) {
 		},
 	}
 	if !LastUserMessageHasVisionAttachment(msgs) {
-		t.Fatal("expected true for last user with image bytes")
+		t.Fatal("ожидалось true для последнего user с байтами изображения")
 	}
 
 	msgs2 := []*domain.Message{
@@ -41,25 +41,25 @@ func TestLastUserMessageHasVisionAttachment(t *testing.T) {
 		},
 	}
 	if LastUserMessageHasVisionAttachment(msgs2) {
-		t.Fatal("expected false without image payload")
+		t.Fatal("ожидалось false без payload изображения")
 	}
 }
 
 func TestToolAllowedWhenUserHasImage(t *testing.T) {
 	list := []string{" 9:read_file ", "1:search"}
 	if !ToolAllowedWhenUserHasImage(list, 9, "read_file") {
-		t.Fatal("expected allow 9:read_file")
+		t.Fatal("ожидалось allow 9:read_file")
 	}
 
 	if ToolAllowedWhenUserHasImage(list, 9, "write_file") {
-		t.Fatal("expected deny 9:write_file")
+		t.Fatal("ожидалось deny 9:write_file")
 	}
 
 	if !ToolAllowedWhenUserHasImage(nil, 1, "anything") {
-		t.Fatal("empty allowlist = allow all")
+		t.Fatal("пустой allowlist = allow all")
 	}
 
 	if !ToolAllowedWhenUserHasImage([]string{}, 1, "x") {
-		t.Fatal("empty slice = allow all")
+		t.Fatal("пустой slice = allow all")
 	}
 }

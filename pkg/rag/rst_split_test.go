@@ -23,7 +23,7 @@ func TestRSTSetext_headingPath(t *testing.T) {
 `
 	chunks := SplitText("guide.rst", doc, SplitOptions{ChunkSizeRunes: 500, ChunkOverlapRunes: 0})
 	if len(chunks) < 2 {
-		t.Fatalf("expected multiple chunks, got %d", len(chunks))
+		t.Fatalf("ожидалось несколько чанков, получено %d", len(chunks))
 	}
 
 	var paths []string
@@ -34,11 +34,11 @@ func TestRSTSetext_headingPath(t *testing.T) {
 	}
 
 	if len(paths) == 0 {
-		t.Fatal("expected at least one heading_path")
+		t.Fatal("ожидалось минимум один heading_path")
 	}
 
 	if !strings.Contains(strings.Join(paths, "|"), "Раздел A") {
-		t.Fatalf("expected heading Раздел A in paths, got %v", paths)
+		t.Fatalf("ожидалось heading Раздел A в paths, получено %v", paths)
 	}
 }
 
@@ -68,11 +68,11 @@ func TestRSTOverline_headingPath(t *testing.T) {
 
 	joined := strings.Join(paths, "|")
 	if !strings.Contains(joined, "Глава one") {
-		t.Fatalf("expected overline chapter in paths, got %v", paths)
+		t.Fatalf("ожидалось overline chapter в paths, получено %v", paths)
 	}
 
 	if !strings.Contains(joined, "Раздел two") {
-		t.Fatalf("expected setext after skipped anchor, got %v", paths)
+		t.Fatalf("ожидалось setext после пропущенного anchor, получено %v", paths)
 	}
 }
 
@@ -93,14 +93,14 @@ func TestRSTExplicitMarkupSkipped(t *testing.T) {
 
 	body := strings.Join(parts, "\n")
 	if strings.Contains(body, ".. note::") {
-		t.Fatalf("directive line should be stripped, got %q", body)
+		t.Fatalf("directive line должно быть stripped, получено %q", body)
 	}
 
 	if !strings.Contains(body, "Тело заметки") {
-		t.Fatalf("expected directive body kept, got %q", body)
+		t.Fatalf("ожидалось тело directive сохранено, получено %q", body)
 	}
 
 	if !strings.Contains(body, "Параграф до") || !strings.Contains(body, "Ещё параграф") {
-		t.Fatalf("expected surrounding paragraphs, got %q", body)
+		t.Fatalf("ожидалось окружающие абзацы, получено %q", body)
 	}
 }

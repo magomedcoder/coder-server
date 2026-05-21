@@ -12,7 +12,7 @@ func TestContract_ChatMessage_hasNoToolProtoFields(t *testing.T) {
 	d := (&llmrunnerpb.ChatMessage{}).ProtoReflect().Descriptor()
 	for _, name := range []string{"tool_call_id", "tool_name", "tool_calls_json"} {
 		if d.Fields().ByName(protoreflect.Name(name)) != nil {
-			t.Fatalf("ChatMessage must not have field %q", name)
+			t.Fatalf("у ChatMessage не должно быть поля %q", name)
 		}
 	}
 }
@@ -22,11 +22,11 @@ func TestContract_SendMessageRequest_renderedPromptField(t *testing.T) {
 	d := (&llmrunnerpb.SendMessageRequest{}).ProtoReflect().Descriptor()
 	f := d.Fields().ByName("rendered_prompt")
 	if f == nil {
-		t.Fatal("SendMessageRequest.rendered_prompt missing")
+		t.Fatal("отсутствует SendMessageRequest.rendered_prompt")
 	}
 
 	if f.Kind() != protoreflect.StringKind {
-		t.Fatalf("rendered_prompt kind=%v", f.Kind())
+		t.Fatalf("тип rendered_prompt=%v", f.Kind())
 	}
 }
 
@@ -34,7 +34,7 @@ func TestContract_SendMessageRequest_hasNoModelField(t *testing.T) {
 	t.Parallel()
 	d := (&llmrunnerpb.SendMessageRequest{}).ProtoReflect().Descriptor()
 	if d.Fields().ByName("model") != nil {
-		t.Fatal("SendMessageRequest.model must not exist — use LoadModel before SendMessage")
+		t.Fatal("поля SendMessageRequest.model быть не должно — сначала LoadModel")
 	}
 }
 
@@ -42,7 +42,7 @@ func TestContract_EmbedRequest_hasNoModelField(t *testing.T) {
 	t.Parallel()
 	d := (&llmrunnerpb.EmbedRequest{}).ProtoReflect().Descriptor()
 	if d.Fields().ByName("model") != nil {
-		t.Fatal("EmbedRequest.model must not exist — use LoadModel before Embed")
+		t.Fatal("поля EmbedRequest.model быть не должно — сначала LoadModel")
 	}
 }
 
@@ -50,7 +50,7 @@ func TestContract_EmbedBatchRequest_hasNoModelField(t *testing.T) {
 	t.Parallel()
 	d := (&llmrunnerpb.EmbedBatchRequest{}).ProtoReflect().Descriptor()
 	if d.Fields().ByName("model") != nil {
-		t.Fatal("EmbedBatchRequest.model must not exist — use LoadModel before EmbedBatch")
+		t.Fatal("поля EmbedBatchRequest.model быть не должно — сначала LoadModel")
 	}
 }
 
@@ -58,6 +58,6 @@ func TestContract_GenerationParams_hasNoToolsField(t *testing.T) {
 	t.Parallel()
 	d := (&llmrunnerpb.GenerationParams{}).ProtoReflect().Descriptor()
 	if d.Fields().ByName("tools") != nil {
-		t.Fatal("GenerationParams.tools must not exist in runner proto")
+		t.Fatal("GenerationParams.tools не должно быть в proto раннера")
 	}
 }

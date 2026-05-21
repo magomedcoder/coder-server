@@ -8,23 +8,23 @@ func TestNormalizeAttachmentFileIDsForModel(t *testing.T) {
 	t.Run("deduplicate and preserve order", func(t *testing.T) {
 		got, err := NormalizeAttachmentFileIDs([]int64{10, 20, 10, 30})
 		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatalf("неожиданась ошибка: %v", err)
 		}
 		if len(got) != 3 || got[0] != 10 || got[1] != 20 || got[2] != 30 {
-			t.Fatalf("unexpected normalized ids: %#v", got)
+			t.Fatalf("неожиданные normalized ids: %#v", got)
 		}
 	})
 
 	t.Run("reject non-positive ids", func(t *testing.T) {
 		if _, err := NormalizeAttachmentFileIDs([]int64{1, 0}); err == nil {
-			t.Fatal("expected error for non-positive attachment id")
+			t.Fatal("ожидалась ошибка for non-positive attachment id")
 		}
 	})
 
 	t.Run("reject more than max attachments", func(t *testing.T) {
 		ids := []int64{1, 2, 3, 4, 5}
 		if _, err := NormalizeAttachmentFileIDs(ids); err == nil {
-			t.Fatal("expected error for too many attachments")
+			t.Fatal("ожидалась ошибка for too many attachments")
 		}
 	})
 }
@@ -32,7 +32,7 @@ func TestNormalizeAttachmentFileIDsForModel(t *testing.T) {
 func TestValidateFileRAGOptions(t *testing.T) {
 	t.Run("allow nil options", func(t *testing.T) {
 		if err := ValidateFileRAGOptions(nil, nil); err != nil {
-			t.Fatalf("unexpected error: %v", err)
+			t.Fatalf("неожиданась ошибка: %v", err)
 		}
 	})
 
@@ -42,7 +42,7 @@ func TestValidateFileRAGOptions(t *testing.T) {
 			TopK:       5,
 		}, []int64{1})
 		if err == nil {
-			t.Fatal("expected validation error")
+			t.Fatal("ожидалась ошибка валидации")
 		}
 	})
 
@@ -51,7 +51,7 @@ func TestValidateFileRAGOptions(t *testing.T) {
 			UseFileRAG: true,
 		}, []int64{1, 2})
 		if err == nil {
-			t.Fatal("expected validation error")
+			t.Fatal("ожидалась ошибка валидации")
 		}
 	})
 
@@ -61,7 +61,7 @@ func TestValidateFileRAGOptions(t *testing.T) {
 			TopK:       -1,
 		}, []int64{1})
 		if err == nil {
-			t.Fatal("expected validation error")
+			t.Fatal("ожидалась ошибка валидации")
 		}
 	})
 }

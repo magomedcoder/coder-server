@@ -56,11 +56,11 @@ func TestBuildServerProbeInMemoryMCP(t *testing.T) {
 	}
 
 	if p.ServerName != "probe-srv" || p.ServerVersion != "9.8.7" {
-		t.Fatalf("ServerInfo: got name=%q version=%q", p.ServerName, p.ServerVersion)
+		t.Fatalf("ServerInfo: получено name=%q version=%q", p.ServerName, p.ServerVersion)
 	}
 
 	if p.Instructions != "test instructions" {
-		t.Fatalf("Instructions: got %q", p.Instructions)
+		t.Fatalf("Instructions: получено %q", p.Instructions)
 	}
 
 	if p.ProtocolVersion == "" {

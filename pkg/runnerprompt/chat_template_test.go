@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/magomedcoder/gen/pkg/domain"
 	runnertemplate "github.com/magomedcoder/gen-runner/template"
+	"github.com/magomedcoder/gen/pkg/domain"
 )
 
 const sampleChatMLJinja = `{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}`
@@ -89,6 +89,6 @@ func TestBuildChatPromptFromManifest_yaml(t *testing.T) {
 	}
 
 	if !strings.Contains(p, "y") {
-		t.Fatalf("got %q", p)
+		t.Fatalf("получено %q", p)
 	}
 }

@@ -44,7 +44,7 @@ func TestTextsBatches_recursiveOnBatchError(t *testing.T) {
 	}
 
 	if st.calls < 3 {
-		t.Fatalf("expected several embed calls, got %d", st.calls)
+		t.Fatalf("ожидалось несколько вызовов embed, получено %d", st.calls)
 	}
 }
 

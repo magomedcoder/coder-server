@@ -23,7 +23,7 @@ func TestParseRunnerHostOrHostPort(t *testing.T) {
 		h, p, err := ParseRunnerHostOrHostPort(tc.in, tc.fallback)
 		if tc.wantErr {
 			if err == nil {
-				t.Fatalf("%q: expected error", tc.in)
+				t.Fatalf("%q: ожидалась ошибка", tc.in)
 			}
 			continue
 		}
@@ -31,7 +31,7 @@ func TestParseRunnerHostOrHostPort(t *testing.T) {
 			t.Fatalf("%q: %v", tc.in, err)
 		}
 		if h != tc.wantHost || p != tc.wantPort {
-			t.Fatalf("%q: got %q:%d want %q:%d", tc.in, h, p, tc.wantHost, tc.wantPort)
+			t.Fatalf("%q: получено %q:%d ожидалось %q:%d", tc.in, h, p, tc.wantHost, tc.wantPort)
 		}
 	}
 }

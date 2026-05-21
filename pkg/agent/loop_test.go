@@ -40,21 +40,21 @@ func (s *scriptedLLM) GetModels(context.Context) ([]string, error) {
 }
 
 func (s *scriptedLLM) Embed(context.Context, string) ([]float32, error) {
-	return nil, fmt.Errorf("n/a")
+	return nil, fmt.Errorf("н/д")
 }
 
 func (s *scriptedLLM) EmbedBatch(context.Context, []string) ([][]float32, error) {
-	return nil, fmt.Errorf("n/a")
+	return nil, fmt.Errorf("н/д")
 }
 
 func (s *scriptedLLM) SendMessage(context.Context, string, []*domain.Message, []string, int32, *domain.GenerationParams) (chan domain.LLMStreamChunk, error) {
-	return nil, fmt.Errorf("n/a")
+	return nil, fmt.Errorf("н/д")
 }
 
 func (s *scriptedLLM) SendMessageOnRunner(_ context.Context, _ string, _ string, _ []*domain.Message, _ []string, _ int32, _ *domain.GenerationParams) (chan domain.LLMStreamChunk, error) {
 	s.n++
 	if s.n > len(s.rounds) {
-		return nil, fmt.Errorf("exhausted")
+		return nil, fmt.Errorf("исчерпано")
 	}
 
 	text := s.rounds[s.n-1]
@@ -106,7 +106,7 @@ func TestRun_finalAnswerNoTools(t *testing.T) {
 	}
 
 	if !strings.Contains(text, "Привет") {
-		t.Fatalf("stream: %q", text)
+		t.Fatalf("стрим: %q", text)
 	}
 
 	if len(store.msgs) != 1 || store.msgs[0].Role != domain.MessageRoleAssistant {
@@ -150,6 +150,6 @@ func TestRun_toolRoundThenAnswer(t *testing.T) {
 	}
 
 	if len(store.msgs) < 3 {
-		t.Fatalf("expected assistant+tool+assistant, got %d", len(store.msgs))
+		t.Fatalf("ожидалось assistant+tool+assistant, получено %d", len(store.msgs))
 	}
 }

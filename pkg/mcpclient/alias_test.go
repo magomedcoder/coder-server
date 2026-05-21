@@ -21,7 +21,7 @@ func TestToolAliasParseRoundTrip(t *testing.T) {
 			alias := ToolAlias(sid, name)
 			gotSid, gotName, ok := ParseToolAlias(alias)
 			if !ok || gotSid != sid || gotName != name {
-				t.Fatalf("alias=%q: ok=%v sid=%d name=%q want sid=%d name=%q", alias, ok, gotSid, gotName, sid, name)
+				t.Fatalf("alias=%q: ok=%v sid=%d name=%q ожидалось sid=%d name=%q", alias, ok, gotSid, gotName, sid, name)
 			}
 		})
 	}

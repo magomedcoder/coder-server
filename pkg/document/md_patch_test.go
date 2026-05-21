@@ -13,7 +13,7 @@ func TestApplyMarkdownPatchJSONAppendReplace(t *testing.T) {
 	}
 
 	if out != "# Привет y\n" {
-		t.Fatalf("got %q", out)
+		t.Fatalf("получено %q", out)
 	}
 }
 
@@ -30,14 +30,14 @@ func TestApplyMarkdownPatchJSONLines(t *testing.T) {
 
 	want := "A\nB\nб\nв"
 	if out != want {
-		t.Fatalf("got %q want %q", out, want)
+		t.Fatalf("получено %q, ожидалось %q", out, want)
 	}
 }
 
 func TestApplyMarkdownPatchJSONAmbiguous(t *testing.T) {
 	_, err := ApplyMarkdownPatchJSON("а а", `{"ops":[{"op":"replace_substring","old":"а","new":"б"}]}`)
 	if err == nil {
-		t.Fatal("expected error")
+		t.Fatal("ожидалась ошибка")
 	}
 
 	if !strings.Contains(err.Error(), "операция") {

@@ -22,27 +22,27 @@ func (timeoutErr) Temporary() bool {
 
 func TestShouldRetryPooledSessionError(t *testing.T) {
 	if shouldRetryPooledSessionError(context.Background(), nil) {
-		t.Fatal("nil error must not be retried")
+		t.Fatal("nil error не должно быть retried")
 	}
 
 	if shouldRetryPooledSessionError(context.Background(), context.Canceled) {
-		t.Fatal("context canceled must not be retried")
+		t.Fatal("context canceled не должно быть retried")
 	}
 
 	if !shouldRetryPooledSessionError(context.Background(), context.DeadlineExceeded) {
-		t.Fatal("deadline exceeded should be retried once for pooled sessions")
+		t.Fatal("deadline exceeded должно быть retried once for pooled sessions")
 	}
 
 	if !shouldRetryPooledSessionError(context.Background(), timeoutErr{}) {
-		t.Fatal("net timeout error should be retried")
+		t.Fatal("net timeout error должно быть retried")
 	}
 
 	if !shouldRetryPooledSessionError(context.Background(), errors.New("read: connection reset by peer")) {
-		t.Fatal("connection reset should be retried")
+		t.Fatal("connection reset должно быть retried")
 	}
 
 	if shouldRetryPooledSessionError(context.Background(), errors.New("validation не удалось")) {
-		t.Fatal("business errors must not be retried")
+		t.Fatal("business errors не должно быть retried")
 	}
 }
 
@@ -51,6 +51,6 @@ func TestShouldRetryPooledSessionErrorParentContextDone(t *testing.T) {
 	cancel()
 
 	if shouldRetryPooledSessionError(ctx, errors.New("connection reset by peer")) {
-		t.Fatal("must not retry when parent context is already done")
+		t.Fatal("не должно retry when parent context is already done")
 	}
 }

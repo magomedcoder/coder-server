@@ -18,7 +18,7 @@ func TestServerConfigFingerprintChangesWithCommand(t *testing.T) {
 	a.URL = "http://127.0.0.1:9/y"
 	fp2 := serverConfigFingerprint(a)
 	if fp1 == fp2 {
-		t.Fatal("fingerprint should change when url changes")
+		t.Fatal("fingerprint должно меняться when url changes")
 	}
 }
 
@@ -51,15 +51,15 @@ func TestNotifyForListChangedHandlers(t *testing.T) {
 
 	SetToolsListCacheForNotifications(nil)
 	if g := notifyForListChangedHandlers(nil); g != nil {
-		t.Fatalf("want nil, got %p", g)
+		t.Fatalf("ожидалось nil, получено %p", g)
 	}
 
 	c := NewToolsListCache()
 	SetToolsListCacheForNotifications(c)
 	if g := notifyForListChangedHandlers(nil); g != c {
-		t.Fatal("expected process default cache")
+		t.Fatal("ожидалось кэш process по умолчанию")
 	}
 	if g := notifyForListChangedHandlers(c); g != c {
-		t.Fatal("explicit notify must override default")
+		t.Fatal("explicit notify должно перекрывать по умолчанию")
 	}
 }

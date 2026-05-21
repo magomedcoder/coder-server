@@ -9,11 +9,11 @@ func TestRedactMCPLogMessagePayloadBearer(t *testing.T) {
 	in := `Authorization: Bearer 1234567890abcdef`
 	got := redactMCPLogMessagePayload(in)
 	if strings.Contains(got, "eyJ") {
-		t.Fatalf("token leaked: %q", got)
+		t.Fatalf("утечка токена: %q", got)
 	}
 
 	if !strings.Contains(got, "bearer [REDACTED]") {
-		t.Fatalf("expected redaction marker: %q", got)
+		t.Fatalf("ожидалось маркер редактирования: %q", got)
 	}
 }
 
@@ -21,7 +21,7 @@ func TestRedactMCPLogMessagePayloadCaseInsensitive(t *testing.T) {
 	in := "BEARER AAAAAAAAAAAAAAAA"
 	got := redactMCPLogMessagePayload(in)
 	if strings.Contains(strings.ToUpper(got), "AAAAAAAA") {
-		t.Fatalf("got %q", got)
+		t.Fatalf("получено %q", got)
 	}
 }
 
@@ -31,10 +31,10 @@ func TestFormatLoggingMessageDataRedactsJSON(t *testing.T) {
 	})
 
 	if strings.Contains(got, "abcdefghijklmnop") {
-		t.Fatalf("got %q", got)
+		t.Fatalf("получено %q", got)
 	}
 
 	if !strings.Contains(got, "[REDACTED]") {
-		t.Fatalf("got %q", got)
+		t.Fatalf("получено %q", got)
 	}
 }

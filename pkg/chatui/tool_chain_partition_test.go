@@ -27,16 +27,16 @@ func TestPartitionMessagesForToolChainUI_sequentialTwoRoundsAndFinal(t *testing.
 
 	part := PartitionMessagesForToolChainUI(msgs)
 	if len(part) != 1 {
-		t.Fatalf("expected 1 partition element, got %d", len(part))
+		t.Fatalf("ожидалось 1 элемент partition, получено %d", len(part))
 	}
 
 	if part[0].SingleIndex != nil || part[0].Chain == nil {
-		t.Fatalf("expected chain group")
+		t.Fatalf("ожидалось группа chain")
 	}
 
 	ch := part[0].Chain
 	if len(ch.Segments) != 2 {
-		t.Fatalf("expected 2 segments, got %d", len(ch.Segments))
+		t.Fatalf("ожидалось 2 сегмента, получено %d", len(ch.Segments))
 	}
 
 	if ch.Segments[0].LeadIndex != 0 || ch.Segments[0].ToolStart != 1 || ch.Segments[0].ToolEnd != 1 {
@@ -48,7 +48,7 @@ func TestPartitionMessagesForToolChainUI_sequentialTwoRoundsAndFinal(t *testing.
 	}
 
 	if ch.FinalAssistantIdx == nil || *ch.FinalAssistantIdx != 4 {
-		t.Fatalf("final idx: %v", ch.FinalAssistantIdx)
+		t.Fatalf("финальный idx: %v", ch.FinalAssistantIdx)
 	}
 }
 
@@ -63,23 +63,23 @@ func TestPartitionMessagesForToolChainUI_userBetweenBreaks(t *testing.T) {
 
 	part := PartitionMessagesForToolChainUI(msgs)
 	if len(part) != 3 {
-		t.Fatalf("expected 3 groups, got %d", len(part))
+		t.Fatalf("ожидалось 3 группы, получено %d", len(part))
 	}
 
 	if part[0].Chain == nil || len(part[0].Chain.Segments) != 1 {
-		t.Fatal("expected first chain 1 segment")
+		t.Fatal("ожидалось первая chain: 1 сегмент")
 	}
 
 	if part[0].Chain.FinalAssistantIdx != nil {
-		t.Fatal("expected no final assistant in first chain")
+		t.Fatal("ожидалось нет финальный assistant в первой chain")
 	}
 
 	if *part[1].SingleIndex != 2 {
-		t.Fatalf("expected user at 2, got %v", part[1].SingleIndex)
+		t.Fatalf("ожидалось user на позиции 2, получено %v", part[1].SingleIndex)
 	}
 
 	if *part[2].SingleIndex != 3 {
-		t.Fatalf("expected assistant at 3, got %v", part[2].SingleIndex)
+		t.Fatalf("ожидалось assistant на позиции 3, получено %v", part[2].SingleIndex)
 	}
 }
 
@@ -91,6 +91,6 @@ func TestPartitionMessagesForToolChainUI_singleAssistantNoTools(t *testing.T) {
 
 	part := PartitionMessagesForToolChainUI(msgs)
 	if len(part) != 1 || part[0].SingleIndex == nil || *part[0].SingleIndex != 0 {
-		t.Fatalf("expected single message, got %+v", part)
+		t.Fatalf("ожидалось одно сообщение, получено %+v", part)
 	}
 }

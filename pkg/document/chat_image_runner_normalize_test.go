@@ -48,7 +48,7 @@ func TestNormalizeChatImageBytesForRunner_downscaleToJPEG(t *testing.T) {
 
 	b := img2.Bounds()
 	if maxInt(b.Dx(), b.Dy()) > MaxRunnerChatImageEdge {
-		t.Fatalf("bounds too large: %dx%d", b.Dx(), b.Dy())
+		t.Fatalf("границы too large: %dx%d", b.Dx(), b.Dy())
 	}
 }
 

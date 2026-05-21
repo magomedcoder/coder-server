@@ -22,11 +22,11 @@ func TestResolve_prefersHealthyOverUnhealthyCandidate(t *testing.T) {
 
 	sel := Resolve(available, entries, "a:1")
 	if sel.Address != "b:2" {
-		t.Fatalf("address: got %q want b:2", sel.Address)
+		t.Fatalf("адрес: получено %q, ожидалось b:2", sel.Address)
 	}
 
 	if !sel.Connected {
-		t.Fatal("expected connected runner")
+		t.Fatal("ожидался подключённый раннер")
 	}
 }
 
@@ -49,7 +49,7 @@ func TestResolve_skipsDisabledCandidate(t *testing.T) {
 
 	sel := Resolve(available, entries, "a:1")
 	if sel.Address != "b:2" {
-		t.Fatalf("address: got %q want b:2", sel.Address)
+		t.Fatalf("адрес: получено %q, ожидалось b:2", sel.Address)
 	}
 }
 
@@ -63,6 +63,6 @@ func TestIsRunnable_withoutProbe(t *testing.T) {
 	}
 
 	if !IsRunnable("a:1", entries) {
-		t.Fatal("enabled without probe should be runnable")
+		t.Fatal("включённый без probe должен быть runnable")
 	}
 }

@@ -7,6 +7,6 @@ func TestNormalizeExtractedText(t *testing.T) {
 	got := NormalizeExtractedText(in)
 	want := "line1\n\nline2\n\nline3"
 	if got != want {
-		t.Fatalf("got %q want %q", got, want)
+		t.Fatalf("получено %q, ожидалось %q", got, want)
 	}
 }

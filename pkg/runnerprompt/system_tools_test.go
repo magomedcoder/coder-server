@@ -28,14 +28,14 @@ func TestEnrichSystemMessage_includesCatalogAndInvocation(t *testing.T) {
 	})
 
 	if !strings.Contains(msg.Content, "[Tools]") {
-		t.Fatal("missing catalog")
+		t.Fatal("отсутствует каталог")
 	}
 
 	if !strings.Contains(msg.Content, "JSON-массив") {
-		t.Fatal("missing invocation block")
+		t.Fatal("отсутствует блок вызова")
 	}
 
 	if !strings.Contains(msg.Content, "[MCP]") {
-		t.Fatal("missing mcp hints")
+		t.Fatal("отсутствуют подсказки mcp")
 	}
 }

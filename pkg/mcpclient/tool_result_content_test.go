@@ -23,11 +23,11 @@ func TestCallToolResultString_TextAndImage(t *testing.T) {
 
 	s := CallToolResultString(res)
 	if !strings.Contains(s, "hello") {
-		t.Fatalf("expected text, got %q", s)
+		t.Fatalf("ожидалось text, получено %q", s)
 	}
 
 	if !strings.Contains(s, "image/png") || !strings.Contains(s, "size_bytes") {
-		t.Fatalf("expected image placeholder, got %q", s)
+		t.Fatalf("ожидалось placeholder изображения, получено %q", s)
 	}
 
 	if strings.Contains(s, "iVBOR") || strings.Contains(s, "base64]\n") {
@@ -46,7 +46,7 @@ func TestEmbeddedResourceImageBlob_placeholderNoBase64(t *testing.T) {
 	}
 
 	if !strings.Contains(s, "image_bytes") {
-		t.Fatalf("expected placeholder: %q", s)
+		t.Fatalf("ожидалось placeholder: %q", s)
 	}
 }
 

@@ -64,7 +64,7 @@ func TestTrimMessagesByApproxTokensWithDropped_collectsMiddle(t *testing.T) {
 	msgs := []*domain.Message{sys, u1, a1, u2}
 	_, trimmed, dropped := TrimMessagesByApproxTokensWithDropped(msgs, 80, 1)
 	if !trimmed || len(dropped) < 1 {
-		t.Fatalf("trimmed=%v dropped=%d", trimmed, len(dropped))
+		t.Fatalf("trimmed=%v отброшено=%d", trimmed, len(dropped))
 	}
 }
 
@@ -127,7 +127,7 @@ func TestTrimMessagesByApproxTokens_dropsVisionUserWithFollowingAssistant(t *tes
 	}
 
 	if dropped[0] != uOld || dropped[1] != aOld {
-		t.Fatalf("unexpected dropped order: roles %v %v", dropped[0].Role, dropped[1].Role)
+		t.Fatalf("неожиданное отброшено order: roles %v %v", dropped[0].Role, dropped[1].Role)
 	}
 }
 

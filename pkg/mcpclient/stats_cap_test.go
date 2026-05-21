@@ -26,16 +26,16 @@ func TestRecordCallToolServerRespectsMaxDistinct(t *testing.T) {
 
 	m := MCPCountersMap()
 	if m["call_tool_server_10_ok"] < 1 || m["call_tool_server_20_ok"] < 1 {
-		t.Fatalf("expected stats for 10 and 20: %v", m)
+		t.Fatalf("ожидалось статистика для 10 и 20: %v", m)
 	}
 
 	if m["call_tool_server_30_ok"] != 0 {
-		t.Fatalf("server 30 should be capped out: %v", m)
+		t.Fatalf("сервер 30 должно быть capped out: %v", m)
 	}
 
 	for k := range m {
 		if strings.Contains(k, "call_tool_server_30_") {
-			t.Fatalf("неожиданный key for capped server: %s", k)
+			t.Fatalf("неожиданный key for capped сервер: %s", k)
 		}
 	}
 }

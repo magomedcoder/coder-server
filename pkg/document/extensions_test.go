@@ -9,19 +9,19 @@ import (
 func TestIsSupportedOrPlainExtra(t *testing.T) {
 	extra := []string{".adoc", "textile"}
 	if !IsSupportedOrPlainExtra("x.md", extra) {
-		t.Fatal("md must stay supported")
+		t.Fatal("md должно оставаться supported")
 	}
 
 	if !IsSupportedOrPlainExtra("notes.adoc", extra) {
-		t.Fatal("expected .adoc in extra")
+		t.Fatal("ожидалось .adoc в extra")
 	}
 
 	if !IsSupportedOrPlainExtra("x.TEXTILE", extra) {
-		t.Fatal("expected .textile case-insensitive")
+		t.Fatal("ожидалось .textile без учёта регистра")
 	}
 
 	if IsSupportedOrPlainExtra("x.unknownext", extra) {
-		t.Fatal("unknown must fail")
+		t.Fatal("unknown должно завершаться ошибкой")
 	}
 }
 
@@ -34,7 +34,7 @@ func TestExtractTextForRAGOrPlainExtra(t *testing.T) {
 	}
 
 	if len(bounds) != 0 {
-		t.Fatalf("bounds: %v", bounds)
+		t.Fatalf("границы: %v", bounds)
 	}
 
 	if got == "" || !strings.Contains(got, "wikiext_marker_771") {

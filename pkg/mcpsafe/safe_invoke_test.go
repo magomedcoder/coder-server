@@ -13,15 +13,15 @@ func TestSafeToolInvokePanicBecomesToolError(t *testing.T) {
 	})
 
 	if err != nil {
-		t.Fatalf("expected err=nil, got %v", err)
+		t.Fatalf("ожидалось err=nil, получено %v", err)
 	}
 
 	if meta != nil {
-		t.Fatalf("expected meta nil, got %#v", meta)
+		t.Fatalf("ожидался meta nil, получено %#v", meta)
 	}
 
 	if res == nil || !res.IsError {
-		t.Fatalf("expected IsError tool result, got %#v", res)
+		t.Fatalf("ожидалось IsError tool result, получено %#v", res)
 	}
 }
 
@@ -41,7 +41,7 @@ func TestSafeToolInvokeSuccess(t *testing.T) {
 	}
 
 	if res == nil || res.IsError {
-		t.Fatalf("unexpected: %#v", res)
+		t.Fatalf("неожиданное: %#v", res)
 	}
 }
 
@@ -51,7 +51,7 @@ func TestSafeToolInvokeEmptyOriginUsesDefault(t *testing.T) {
 	})
 
 	if err != nil || res == nil || !res.IsError {
-		t.Fatalf("want tool error, got res=%#v err=%v", res, err)
+		t.Fatalf("ожидалось tool error, получено res=%#v err=%v", res, err)
 	}
 }
 
@@ -66,6 +66,6 @@ func TestSafeToolInvokePassesThroughHandlerError(t *testing.T) {
 	}
 
 	if err != e {
-		t.Fatalf("expected handler error, got res=%#v err=%v", res, err)
+		t.Fatalf("ожидалось ошибка обработчик, res=%#v err=%v", res, err)
 	}
 }

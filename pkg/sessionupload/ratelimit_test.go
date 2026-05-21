@@ -18,16 +18,16 @@ func TestLimiter_resetsAfterWindow(t *testing.T) {
 
 	for i := 0; i < int(nOK); i++ {
 		if err := lim.CheckPutSessionFile(uid, chunk); err != nil {
-			t.Fatalf("iteration %d: %v", i, err)
+			t.Fatalf("итерация %d: %v", i, err)
 		}
 	}
 	if err := lim.CheckPutSessionFile(uid, chunk); err == nil {
-		t.Fatal("expected error when byte budget exceeded within window")
+		t.Fatal("ожидалась ошибка when byte budget exceeded within window")
 	}
 
 	clock = t0.Add(PutSessionFileRateWindow)
 	if err := lim.CheckPutSessionFile(uid, chunk); err != nil {
-		t.Fatalf("after window: %v", err)
+		t.Fatalf("после окна: %v", err)
 	}
 }
 
@@ -40,11 +40,11 @@ func TestLimiter_uploadCountCap(t *testing.T) {
 
 	for i := range PutSessionFileMaxUploadsPerMin {
 		if err := lim.CheckPutSessionFile(uid, small); err != nil {
-			t.Fatalf("iteration %d: %v", i, err)
+			t.Fatalf("итерация %d: %v", i, err)
 		}
 	}
 
 	if err := lim.CheckPutSessionFile(uid, small); err == nil {
-		t.Fatal("expected error when upload count cap exceeded")
+		t.Fatal("ожидалась ошибка when upload count cap exceeded")
 	}
 }

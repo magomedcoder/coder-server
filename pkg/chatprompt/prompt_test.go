@@ -24,27 +24,27 @@ func TestAssemblePromptMessages_keepsInstructionSeparateFromDocumentContext(t *t
 
 	out := AssemblePromptMessages(sessionID, systemPolicy, history, userInstruction, blocks)
 	if len(out) != 4 {
-		t.Fatalf("unexpected message count: %d", len(out))
+		t.Fatalf("неожиданное число сообщений: %d", len(out))
 	}
 
 	if out[0].Role != domain.MessageRoleSystem || out[0].Content != "system policy" {
-		t.Fatalf("first message must be system policy, got role=%s content=%q", out[0].Role, out[0].Content)
+		t.Fatalf("первое сообщение должно быть system policy, role=%s content=%q", out[0].Role, out[0].Content)
 	}
 
 	if out[1].Role != domain.MessageRoleAssistant {
-		t.Fatalf("second message must be history assistant, got role=%s", out[1].Role)
+		t.Fatalf("второе сообщение должно быть history assistant, role=%s", out[1].Role)
 	}
 
 	if out[2].Role != domain.MessageRoleSystem {
-		t.Fatalf("third message must be document context system message, got role=%s", out[2].Role)
+		t.Fatalf("третье сообщение должно быть document context system, role=%s", out[2].Role)
 	}
 
 	if !strings.Contains(out[2].Content, DocumentContextHierarchyInstruction) {
-		t.Fatalf("document context block must include hierarchy instruction, got %q", out[2].Content)
+		t.Fatalf("document context block должно включать hierarchy instruction, получено %q", out[2].Content)
 	}
 
 	if out[3].Role != domain.MessageRoleUser || out[3].Content != "answer in 3 bullets" {
-		t.Fatalf("last message must be raw user instruction, got role=%s content=%q", out[3].Role, out[3].Content)
+		t.Fatalf("последнее сообщение должно быть raw user instruction, role=%s content=%q", out[3].Role, out[3].Content)
 	}
 }
 
@@ -58,30 +58,30 @@ func TestAssemblePromptMessages_withoutDocumentContext(t *testing.T) {
 
 	out := AssemblePromptMessages(sessionID, systemPolicy, history, userInstruction, nil)
 	if len(out) != 3 {
-		t.Fatalf("unexpected message count: %d", len(out))
+		t.Fatalf("неожиданное число сообщений: %d", len(out))
 	}
 
 	if out[0] != systemPolicy {
-		t.Fatal("system policy must stay first")
+		t.Fatal("system policy должен остаться первым")
 	}
 
 	if out[1] != history[0] {
-		t.Fatal("history message must be preserved")
+		t.Fatal("history message должен сохраниться")
 	}
 
 	if out[2] != userInstruction {
-		t.Fatal("user instruction must stay last")
+		t.Fatal("user instruction должен остаться последним")
 	}
 }
 
 func TestFormatDocumentContextBlock(t *testing.T) {
 	got := FormatDocumentContextBlock("Файл: a.txt", "```txt\nbody\n```")
 	if !strings.Contains(got, "### Файл: a.txt") {
-		t.Fatalf("missing heading: %q", got)
+		t.Fatalf("отсутствует heading: %q", got)
 	}
 
 	if !strings.Contains(got, "```txt\nbody\n```") {
-		t.Fatalf("missing body: %q", got)
+		t.Fatalf("отсутствует тело: %q", got)
 	}
 }
 
@@ -104,19 +104,19 @@ func TestApplyInstructionSafeBudgetManager_dropsDocumentContextFirst(t *testing.
 
 	out, metrics := ApplyInstructionSafeBudgetManager(maxTok, systemPolicy, history, userInstruction, blocks)
 	if len(out) != 0 {
-		t.Fatalf("expected context to be dropped first, got %d blocks", len(out))
+		t.Fatalf("ожидалось, что контекст отбросят первым, получено блоков %d", len(out))
 	}
 
 	if metrics.DroppedRunesTotal == 0 {
-		t.Fatal("expected dropped runes metrics")
+		t.Fatal("ожидались метрики dropped runes")
 	}
 
 	if metrics.DroppedRunesByFile["big.txt"] == 0 {
-		t.Fatalf("expected by-file metric for big.txt, got %#v", metrics.DroppedRunesByFile)
+		t.Fatalf("ожидалась метрика by-file для big.txt, получено %#v", metrics.DroppedRunesByFile)
 	}
 
 	if metrics.DroppedRunesBySource["rag"] == 0 {
-		t.Fatalf("expected by-source metric for rag, got %#v", metrics.DroppedRunesBySource)
+		t.Fatalf("ожидалась метрика by-source для rag, получено %#v", metrics.DroppedRunesBySource)
 	}
 }
 
@@ -142,6 +142,6 @@ func TestApplyInstructionSafeBudgetManager_keepsStrictFormatInstructionWithLongD
 	messages := AssemblePromptMessages(1, systemPolicy, history, userInstruction, trimmedBlocks)
 	last := messages[len(messages)-1]
 	if last.Role != domain.MessageRoleUser || last.Content != strictInstruction {
-		t.Fatalf("strict user instruction must stay unchanged, got role=%s content=%q", last.Role, last.Content)
+		t.Fatalf("строгая user instruction не должна меняться, role=%s content=%q", last.Role, last.Content)
 	}
 }

@@ -44,7 +44,7 @@ func TestActiveMCPServersContractLive(t *testing.T) {
 
 			probe, err := ProbeServer(ctx, srv, cache)
 			if err != nil {
-				t.Fatalf("probe failed: %v", err)
+				t.Fatalf("ошибка probe: %v", err)
 			}
 
 			if strings.TrimSpace(probe.ProtocolVersion) == "" {
@@ -53,7 +53,7 @@ func TestActiveMCPServersContractLive(t *testing.T) {
 
 			_, err = cache.ListToolsCached(ctx, srv, DefaultToolsListCacheTTL)
 			if err != nil {
-				t.Fatalf("list tools failed: %v", err)
+				t.Fatalf("ошибка list tools: %v", err)
 			}
 		})
 	}

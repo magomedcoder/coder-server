@@ -13,11 +13,11 @@ func TestFormatContentForRunner_toolRole(t *testing.T) {
 	m.ToolName = "mcp_2_habc"
 	got := FormatContentForRunner(m)
 	if !strings.HasPrefix(got, "[call_id=call_1] ") || !strings.Contains(got, "[mcp_2_habc] ") {
-		t.Fatalf("got %q", got)
+		t.Fatalf("получено %q", got)
 	}
 
 	if !strings.HasSuffix(got, "result body") {
-		t.Fatal("missing body")
+		t.Fatal("отсутствует тело")
 	}
 }
 
@@ -26,7 +26,7 @@ func TestFormatContentForRunner_assistantToolCalls(t *testing.T) {
 	m.ToolCallsJSON = `[{"tool_name":"x","parameters":{}}]`
 	got := FormatContentForRunner(m)
 	if !strings.Contains(got, ToolCallsBlockPrefix) {
-		t.Fatalf("got %q", got)
+		t.Fatalf("получено %q", got)
 	}
 }
 
@@ -41,6 +41,6 @@ func TestPrepareMessagesForRunner_clearsToolFields(t *testing.T) {
 
 	out := PrepareMessagesForRunner(in)
 	if out[0].ToolName != "" || out[0].Content == "t" {
-		t.Fatalf("tool fields must be embedded: content=%q name=%q", out[0].Content, out[0].ToolName)
+		t.Fatalf("поля tool должны быть встроены: content=%q name=%q", out[0].Content, out[0].ToolName)
 	}
 }

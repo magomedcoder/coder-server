@@ -86,7 +86,7 @@ func TestParseCohereActionList_legacyToolArguments(t *testing.T) {
 	}
 
 	if string(rows[0].Parameters) != `{"task_id":1001}` {
-		t.Fatalf("unexpected arguments: %s", string(rows[0].Parameters))
+		t.Fatalf("неожиданные arguments: %s", string(rows[0].Parameters))
 	}
 }
 
@@ -98,7 +98,7 @@ func TestParseCohereActionList_StringifiedArgumentsJSON(t *testing.T) {
 	}
 
 	if string(rows[0].Parameters) != `{"task_id":1001}` {
-		t.Fatalf("unexpected normalized arguments: %s", string(rows[0].Parameters))
+		t.Fatalf("неожиданные normalized arguments: %s", string(rows[0].Parameters))
 	}
 }
 
@@ -142,7 +142,7 @@ func TestRunFnWithContextNoDeadline(t *testing.T) {
 		return 42, nil
 	})
 	if err != nil || v != 42 {
-		t.Fatalf("got %v, %v", v, err)
+		t.Fatalf("получено %v, %v", v, err)
 	}
 }
 
@@ -161,7 +161,7 @@ func TestDrainLLMStreamChannelForward(t *testing.T) {
 	})
 
 	if raw != "ab" || !streamed || len(got) != 2 || got[0].Content != "a" || got[1].Content != "b" {
-		t.Fatalf("raw=%q streamed=%v got=%v", raw, streamed, got)
+		t.Fatalf("raw=%q streamed=%v получено=%v", raw, streamed, got)
 	}
 }
 
@@ -175,25 +175,25 @@ func TestStreamToolRoundComplete(t *testing.T) {
 	StreamToolRoundComplete(send, 7, false, "x", "x")
 
 	if len(chunks) != 1 || chunks[0].MessageID != 7 || chunks[0].Text != "x" {
-		t.Fatalf("no stream: %+v", chunks)
+		t.Fatalf("нет стрима: %+v", chunks)
 	}
 
 	chunks = nil
 	StreamToolRoundComplete(send, 8, true, "same", "same")
 	if len(chunks) != 1 || chunks[0].MessageID != 8 || chunks[0].Text != "" {
-		t.Fatalf("stream same: %+v", chunks)
+		t.Fatalf("стрим same: %+v", chunks)
 	}
 
 	chunks = nil
 	StreamToolRoundComplete(send, 9, true, "raw", "short")
 	if len(chunks) != 1 || chunks[0].MessageID != 9 || chunks[0].Text != "short" {
-		t.Fatalf("stream diff: %+v", chunks)
+		t.Fatalf("стрим diff: %+v", chunks)
 	}
 }
 
 func TestMaxToolInvocationRoundsDefaultsAndClamp(t *testing.T) {
 	if got := MaxToolInvocationRounds(nil); got != DefaultToolLoopRounds {
-		t.Fatalf("default rounds mismatch: got=%d want=%d", got, DefaultToolLoopRounds)
+		t.Fatalf("по умолчанию rounds несовпадение: получено=%d ожидалось=%d", got, DefaultToolLoopRounds)
 	}
 }
 
@@ -214,19 +214,19 @@ func TestResolveExecutableToolCallsUsesResolvedAliases(t *testing.T) {
 
 	out, err := ResolveExecutableToolCalls(gp, rows)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("неожиданась ошибка: %v", err)
 	}
 
 	if len(out) != 1 {
-		t.Fatalf("unexpected calls count: %d", len(out))
+		t.Fatalf("неожиданное calls count: %d", len(out))
 	}
 
 	if out[0].RequestedName != "ping" {
-		t.Fatalf("requested name mismatch: %q", out[0].RequestedName)
+		t.Fatalf("requested name несовпадение: %q", out[0].RequestedName)
 	}
 
 	if out[0].ResolvedName != alias {
-		t.Fatalf("resolved name mismatch: got=%q want=%q", out[0].ResolvedName, alias)
+		t.Fatalf("resolved name несовпадение: получено=%q ожидалось=%q", out[0].ResolvedName, alias)
 	}
 }
 
@@ -245,7 +245,7 @@ func TestResolveExecutableToolCallsRejectsUndeclared(t *testing.T) {
 	})
 
 	if err == nil || !strings.Contains(err.Error(), "не объявлен") {
-		t.Fatalf("expected undeclared error, got: %v", err)
+		t.Fatalf("ожидалось ошибка undeclared, получено: %v", err)
 	}
 }
 

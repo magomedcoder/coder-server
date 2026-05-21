@@ -27,7 +27,7 @@ func TestSniffStrictImageMIME_png(t *testing.T) {
 	}
 
 	if got != "image/png" {
-		t.Fatalf("got %q", got)
+		t.Fatalf("получено %q", got)
 	}
 }
 

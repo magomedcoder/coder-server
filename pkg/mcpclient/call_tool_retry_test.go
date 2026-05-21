@@ -62,17 +62,17 @@ func TestCallToolTransportRetryReducesErrorRateByAtLeast30Percent(t *testing.T) 
 
 	baselineFailRate := runWave(false)
 	optimizedFailRate := runWave(true)
-	t.Logf("timeout/transport fail rate baseline=%.2f optimized=%.2f", baselineFailRate, optimizedFailRate)
+	t.Logf("доля сбоев timeout/transport: baseline=%.2f optimized=%.2f", baselineFailRate, optimizedFailRate)
 
 	if baselineFailRate <= 0 {
-		t.Fatalf("expected non-zero baseline fail rate")
+		t.Fatalf("ожидалось ненулевой baseline fail rate")
 	}
 
 	if optimizedFailRate >= baselineFailRate {
-		t.Fatalf("expected lower fail rate with retry, baseline=%.2f optimized=%.2f", baselineFailRate, optimizedFailRate)
+		t.Fatalf("ожидалось ниже fail rate с retry, baseline=%.2f optimized=%.2f", baselineFailRate, optimizedFailRate)
 	}
 
 	if optimizedFailRate > baselineFailRate*0.70 {
-		t.Fatalf("fail-rate reduction is below 30%%, baseline=%.2f optimized=%.2f", baselineFailRate, optimizedFailRate)
+		t.Fatalf("снижение fail-rate ниже 30%%, baseline=%.2f optimized=%.2f", baselineFailRate, optimizedFailRate)
 	}
 }

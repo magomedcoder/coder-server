@@ -21,14 +21,14 @@ func TestValidateMCPServerStructure_transport(t *testing.T) {
 		Transport:      "stdio",
 		TimeoutSeconds: 120,
 	}); err == nil {
-		t.Fatal("expected error for stdio transport")
+		t.Fatal("ожидалась ошибка for stdio transport")
 	}
 
 	if err := ValidateMCPServerStructure(&MCPServer{
 		Transport:      "bad",
 		TimeoutSeconds: 1,
 	}); err == nil {
-		t.Fatal("expected error for bad transport")
+		t.Fatal("ожидалась ошибка for bad transport")
 	}
 }
 
@@ -44,7 +44,7 @@ func TestValidateMCPServerStructure_timeout(t *testing.T) {
 		Transport:      "streamable",
 		TimeoutSeconds: 601,
 	}); err == nil {
-		t.Fatal("expected error for timeout > 600")
+		t.Fatal("ожидалась ошибка for timeout > 600")
 	}
 }
 
@@ -55,6 +55,6 @@ func TestNormalizeMCPServer(t *testing.T) {
 	}
 	NormalizeMCPServer(s)
 	if s.Transport != "sse" || s.Name != "x" {
-		t.Fatalf("got transport=%q name=%q", s.Transport, s.Name)
+		t.Fatalf("получено transport=%q name=%q", s.Transport, s.Name)
 	}
 }

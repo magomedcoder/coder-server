@@ -53,19 +53,19 @@ func TestSelectMultiFileCandidates_prefersHigherScoresWithLimits(t *testing.T) {
 
 	out := SelectMultiFileCandidates(candidates, 140, 120)
 	if len(out[0]) == 0 {
-		t.Fatal("expected top chunk for file 0")
+		t.Fatal("ожидался top chunk для файла 0")
 	}
 
 	if len(out[1]) == 0 {
-		t.Fatal("expected selected chunk for file 1")
+		t.Fatal("ожидался selected chunk для файла 1")
 	}
 
 	if len(out[0]) > MultiFilePerFileLimit {
-		t.Fatalf("per-file limit exceeded: %d", len(out[0]))
+		t.Fatalf("превышен лимит per-file: %d", len(out[0]))
 	}
 
 	if out[0][0].Score < out[1][0].Score {
-		t.Fatalf("expected higher score to stay prioritized, file0=%v file1=%v", out[0][0].Score, out[1][0].Score)
+		t.Fatalf("ожидался более высокий score, file0=%v file1=%v", out[0][0].Score, out[1][0].Score)
 	}
 }
 
@@ -91,10 +91,10 @@ func TestSelectMultiFileCandidates_respectsBudgetInConflictingMultiFileCase(t *t
 	}
 
 	if totalSelected == 0 {
-		t.Fatal("expected at least one selected fragment")
+		t.Fatal("ожидался минимум один выбранный фрагмент")
 	}
 
 	if totalSelected > 2 {
-		t.Fatalf("expected budget-constrained selection, got %d fragments", totalSelected)
+		t.Fatalf("ожидался выбор с ограничением бюджета, получено фрагментов %d", totalSelected)
 	}
 }

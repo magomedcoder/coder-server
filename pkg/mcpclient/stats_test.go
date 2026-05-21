@@ -40,6 +40,6 @@ func TestMCPCountersMapIncrements(t *testing.T) {
 	}
 
 	if m["call_tool_server_99_ok"] < 1 || m["call_tool_server_99_transport_err"] < 1 {
-		t.Fatalf("per-server call_tool counters: %v", m)
+		t.Fatalf("по серверу call_tool counters: %v", m)
 	}
 }

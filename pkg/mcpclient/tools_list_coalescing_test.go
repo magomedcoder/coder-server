@@ -111,17 +111,17 @@ func TestListToolsCoalescingReducesBurstP95(t *testing.T) {
 	}
 
 	optimizedCalls := calls.Load()
-	t.Logf("burst p95 baseline=%s optimized=%s backend_calls_baseline=%d backend_calls_optimized=%d", baselineP95, optimizedP95, baselineCalls, optimizedCalls)
+	t.Logf("burst p95: baseline=%s optimized=%s backend_calls_baseline=%d backend_calls_optimized=%d", baselineP95, optimizedP95, baselineCalls, optimizedCalls)
 
 	if optimizedP95 >= baselineP95 {
-		t.Fatalf("expected lower p95 with coalescing, baseline=%s optimized=%s", baselineP95, optimizedP95)
+		t.Fatalf("ожидалось ниже p95 с coalescing, baseline=%s optimized=%s", baselineP95, optimizedP95)
 	}
 
 	if optimizedP95*10 > baselineP95*8 {
-		t.Fatalf("p95 improvement is less than 20%%, baseline=%s optimized=%s", baselineP95, optimizedP95)
+		t.Fatalf("улучшение p95 меньше 20%%, baseline=%s optimized=%s", baselineP95, optimizedP95)
 	}
 
 	if optimizedCalls >= baselineCalls {
-		t.Fatalf("expected fewer backend list calls, baseline=%d optimized=%d", baselineCalls, optimizedCalls)
+		t.Fatalf("ожидалось меньше backend list calls, baseline=%d optimized=%d", baselineCalls, optimizedCalls)
 	}
 }
