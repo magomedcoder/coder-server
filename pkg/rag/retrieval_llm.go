@@ -13,7 +13,6 @@ import (
 type LLMChat interface {
 	SendMessage(
 		ctx context.Context,
-		sessionID int64,
 		model string,
 		messages []*domain.Message,
 		stopSequences []string,
@@ -40,7 +39,7 @@ func RewriteQueryForRetrieval(
 		domain.NewMessage(sessionID, userQuery, domain.MessageRoleUser),
 	}
 	gp := &domain.GenerationParams{Temperature: &cfg.Temperature, MaxTokens: &cfg.MaxTokens}
-	ch, err := llm.SendMessage(ctx, sessionID, model, msgs, nil, timeoutSeconds, gp)
+	ch, err := llm.SendMessage(ctx, model, msgs, nil, timeoutSeconds, gp)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +63,7 @@ func GenerateHyDEPseudoDocument(
 		domain.NewMessage(sessionID, query, domain.MessageRoleUser),
 	}
 	gp := &domain.GenerationParams{Temperature: &cfg.Temperature, MaxTokens: &cfg.MaxTokens}
-	ch, err := llm.SendMessage(ctx, sessionID, model, msgs, nil, timeoutSeconds, gp)
+	ch, err := llm.SendMessage(ctx, model, msgs, nil, timeoutSeconds, gp)
 	if err != nil {
 		return "", err
 	}
@@ -119,7 +118,7 @@ func RerankSearchHits(
 		domain.NewMessage(sessionID, BuildRerankUserPrompt(userQuery, pool, passageMaxRunes), domain.MessageRoleUser),
 	}
 	gp := &domain.GenerationParams{Temperature: &cfg.Temperature, MaxTokens: &cfg.MaxTokens}
-	ch, err := llm.SendMessage(ctx, sessionID, model, msgs, nil, timeoutSeconds, gp)
+	ch, err := llm.SendMessage(ctx, model, msgs, nil, timeoutSeconds, gp)
 	if err != nil {
 		return hits, elapsedMs, err
 	}
@@ -158,7 +157,7 @@ func RunDeepMapCall(
 		domain.NewMessage(sessionID, u, domain.MessageRoleUser),
 	}
 	gp := &domain.GenerationParams{Temperature: &cfg.Temperature, MaxTokens: &cfg.MaxTokens}
-	ch, err := llm.SendMessage(ctx, sessionID, model, msgs, nil, timeoutSeconds, gp)
+	ch, err := llm.SendMessage(ctx, model, msgs, nil, timeoutSeconds, gp)
 	if err != nil {
 		return "", err
 	}

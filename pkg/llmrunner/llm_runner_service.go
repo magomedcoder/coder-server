@@ -95,12 +95,12 @@ func (s *LLMRunnerService) rpcCtx(ctx context.Context) context.Context {
 }
 
 func (s *LLMRunnerService) CheckConnection(ctx context.Context) (bool, error) {
-	resp, err := s.client.CheckConnection(s.rpcCtx(ctx), &llmrunnerpb.Empty{})
+	pr, err := s.RunnerProbe(ctx)
 	if err != nil {
-		return false, fmt.Errorf("gen-runner CheckConnection: %w", err)
+		return false, err
 	}
 
-	return resp.IsConnected, nil
+	return pr != nil && pr.GetBackendConnected(), nil
 }
 
 func (s *LLMRunnerService) RunnerProbe(ctx context.Context) (*llmrunnerpb.RunnerProbeResponse, error) {
@@ -152,6 +152,23 @@ func (s *LLMRunnerService) GetLoadedModel(ctx context.Context) (*llmrunnerpb.Get
 	return resp, nil
 }
 
+func (s *LLMRunnerService) LoadModel(ctx context.Context, model string) error {
+	model = strings.TrimSpace(model)
+	if model == "" || model == "default" {
+		model = strings.TrimSpace(s.model)
+	}
+	if model == "" || model == "default" {
+		return fmt.Errorf("укажите model для LoadModel")
+	}
+
+	_, err := s.client.LoadModel(s.rpcCtx(ctx), &llmrunnerpb.LoadModelRequest{Model: model})
+	if err != nil {
+		return fmt.Errorf("gen-runner LoadModel: %w", err)
+	}
+
+	return nil
+}
+
 func (s *LLMRunnerService) UnloadModel(ctx context.Context) error {
 	_, err := s.client.UnloadModel(s.rpcCtx(ctx), &llmrunnerpb.Empty{})
 	if err != nil {
@@ -192,10 +209,17 @@ func (s *LLMRunnerService) resolveRunnerModel(model string) string {
 	return modelName
 }
 
-func (s *LLMRunnerService) Embed(ctx context.Context, model, text string) ([]float32, error) {
+func (s *LLMRunnerService) Embed(ctx context.Context, text string) ([]float32, error) {
+	lm, err := s.GetLoadedModel(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if lm == nil || !lm.GetLoaded() {
+		return nil, fmt.Errorf("модель не загружена на раннере: вызовите LoadModel перед Embed")
+	}
+
 	resp, err := s.client.Embed(s.rpcCtx(ctx), &llmrunnerpb.EmbedRequest{
-		Model: s.resolveRunnerModel(model),
-		Text:  text,
+		Text: text,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gen-runner Embed: %w", err)
@@ -208,9 +232,16 @@ func (s *LLMRunnerService) Embed(ctx context.Context, model, text string) ([]flo
 	return resp.Values, nil
 }
 
-func (s *LLMRunnerService) EmbedBatch(ctx context.Context, model string, texts []string) ([][]float32, error) {
+func (s *LLMRunnerService) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	lm, err := s.GetLoadedModel(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if lm == nil || !lm.GetLoaded() {
+		return nil, fmt.Errorf("модель не загружена на раннере: вызовите LoadModel перед EmbedBatch")
+	}
+
 	resp, err := s.client.EmbedBatch(s.rpcCtx(ctx), &llmrunnerpb.EmbedBatchRequest{
-		Model: s.resolveRunnerModel(model),
 		Texts: texts,
 	})
 	if err != nil {
@@ -236,7 +267,6 @@ func (s *LLMRunnerService) EmbedBatch(ctx context.Context, model string, texts [
 
 func (s *LLMRunnerService) SendMessage(
 	ctx context.Context,
-	sessionID int64,
 	model string,
 	messages []*domain.Message,
 	stopSequences []string,
@@ -247,24 +277,20 @@ func (s *LLMRunnerService) SendMessage(
 	if genParams != nil {
 		nTools = len(genParams.Tools)
 	}
-	logger.I("Runner gRPC client: phase=SendMessage_stream session_id=%d model=%q tools_in_prompt=%d msgs=%d", sessionID, s.resolveRunnerModel(model), nTools, len(messages))
-	return s.sendMessageStream(ctx, sessionID, model, messages, stopSequences, timeoutSeconds, genParams)
+	logger.I("Runner gRPC client: phase=SendMessage_stream model=%q tools_in_prompt=%d msgs=%d", s.resolveRunnerModel(model), nTools, len(messages))
+	return s.sendMessageStream(ctx, model, messages, stopSequences, timeoutSeconds, genParams)
 }
 
 func (s *LLMRunnerService) sendMessageStream(
 	ctx context.Context,
-	sessionID int64,
 	model string,
 	messages []*domain.Message,
 	stopSequences []string,
 	timeoutSeconds int32,
 	genParams *domain.GenerationParams,
 ) (chan domain.LLMStreamChunk, error) {
-	modelName := s.resolveRunnerModel(model)
 	req := &llmrunnerpb.SendMessageRequest{
-		SessionId:        sessionID,
 		Messages:         domainMessagesToProto(messages),
-		Model:            modelName,
 		StopSequences:    stopSequences,
 		GenerationParams: mapGenerationParamsToProto(genParams),
 	}
@@ -281,19 +307,27 @@ func (s *LLMRunnerService) sendMessageStream(
 
 	applyRenderedPromptToRequest(req, gpForRunner)
 
+	runnerModel := s.resolveRunnerModel(model)
+	lm, lmErr := s.GetLoadedModel(ctx)
+	if lmErr != nil {
+		return nil, lmErr
+	}
+	if lm == nil || !lm.GetLoaded() {
+		return nil, fmt.Errorf("модель не загружена на раннере: вызовите LoadModel перед SendMessage")
+	}
 	if nv := countRunnerVisionAttachments(messages); nv > 0 {
-		logger.I("Runner gRPC client: phase=vision_attachments session_id=%d model=%q messages_with_image_payload=%d", sessionID, modelName, nv)
+		logger.I("Runner gRPC client: phase=vision_attachments model=%q messages_with_image_payload=%d", runnerModel, nv)
 	}
 
 	stream, err := s.client.SendMessage(s.rpcCtx(ctx), req)
 	if err != nil {
-		logger.W("Runner gRPC client: phase=grpc_send_err session_id=%d model=%q err=%v", sessionID, modelName, err)
+		logger.W("Runner gRPC client: phase=grpc_send_err model=%q err=%v", runnerModel, err)
 		return nil, fmt.Errorf("gen-runner SendMessage: %w", err)
 	}
 
 	firstMsg, err := stream.Recv()
 	if err != nil {
-		logger.W("Runner gRPC client: phase=grpc_recv_first_err session_id=%d model=%q err=%v", sessionID, modelName, err)
+		logger.W("Runner gRPC client: phase=grpc_recv_first_err model=%q err=%v", runnerModel, err)
 		return nil, fmt.Errorf("gen-runner SendMessage: ошибка чтения чанка из потока ответа: %w", err)
 	}
 
@@ -330,9 +364,9 @@ func (s *LLMRunnerService) sendMessageStream(
 			msg, err := stream.Recv()
 			if err != nil {
 				if err != io.EOF {
-					logger.W("Runner gRPC client: phase=grpc_recv_err session_id=%d model=%q err=%v", sessionID, modelName, err)
+					logger.W("Runner gRPC client: phase=grpc_recv_err model=%q err=%v", runnerModel, err)
 				} else {
-					logger.V("Runner gRPC client: phase=grpc_stream_eof session_id=%d model=%q", sessionID, modelName)
+					logger.V("Runner gRPC client: phase=grpc_stream_eof model=%q", runnerModel)
 				}
 
 				return

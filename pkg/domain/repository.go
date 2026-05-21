@@ -144,13 +144,13 @@ type Tool struct {
 }
 
 type GenerationParams struct {
-	Temperature    *float32
-	MaxTokens      *int32
-	TopK           *int32
-	TopP           *float32
-	EnableThinking *bool
-	ResponseFormat *ResponseFormat
-	Tools          []Tool
+	Temperature       *float32
+	MaxTokens         *int32
+	TopK              *int32
+	TopP              *float32
+	EnableThinking    *bool
+	ResponseFormat    *ResponseFormat
+	Tools             []Tool
 	ChatTemplateJinja string
 	RenderedPrompt    string
 }
@@ -162,7 +162,6 @@ type LLMRepository interface {
 
 	SendMessage(
 		ctx context.Context,
-		sessionID int64,
 		model string,
 		messages []*Message,
 		stopSequences []string,
@@ -173,7 +172,6 @@ type LLMRepository interface {
 	SendMessageOnRunner(
 		ctx context.Context,
 		runnerListenAddr string,
-		sessionID int64,
 		model string,
 		messages []*Message,
 		stopSequences []string,
@@ -181,9 +179,9 @@ type LLMRepository interface {
 		genParams *GenerationParams,
 	) (chan LLMStreamChunk, error)
 
-	Embed(ctx context.Context, model string, text string) ([]float32, error)
+	Embed(ctx context.Context, text string) ([]float32, error)
 
-	EmbedBatch(ctx context.Context, model string, texts []string) ([][]float32, error)
+	EmbedBatch(ctx context.Context, texts []string) ([][]float32, error)
 }
 
 type ChatRepos struct {

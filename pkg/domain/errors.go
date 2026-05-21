@@ -7,6 +7,7 @@ var (
 	ErrUnauthorized                 = errors.New("недостаточно прав")
 	ErrNoRunners                    = errors.New("нет активных раннеров")
 	ErrRunnerChatModelNotConfigured = errors.New("у активного раннера не задана модель для чата")
+	ErrRunnerModelNotLoaded         = errors.New("на раннере не загружена модель в память: администратор должен вызвать LoadModel")
 	ErrRegenerateToolsNotSupported  = errors.New("перегенерация недоступна при включённых инструментах")
 	ErrRAGNotConfigured             = errors.New("RAG по файлам не настроен")
 	ErrRAGIndexNotReady             = errors.New("индекс файла для RAG ещё не готов")

@@ -6,12 +6,12 @@ import (
 )
 
 type Runner interface {
-	Embed(ctx context.Context, model string, text string) ([]float32, error)
+	Embed(ctx context.Context, text string) ([]float32, error)
 
-	EmbedBatch(ctx context.Context, model string, texts []string) ([][]float32, error)
+	EmbedBatch(ctx context.Context, texts []string) ([][]float32, error)
 }
 
-func TextsBatches(ctx context.Context, llm Runner, model string, texts []string, batchSize int) ([][]float32, error) {
+func TextsBatches(ctx context.Context, llm Runner, texts []string, batchSize int) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
 	}
@@ -24,7 +24,7 @@ func TextsBatches(ctx context.Context, llm Runner, model string, texts []string,
 	for i := 0; i < len(texts); i += batchSize {
 		end := min(i+batchSize, len(texts))
 
-		part, err := textsRecursive(ctx, llm, model, texts[i:end])
+		part, err := textsRecursive(ctx, llm, texts[i:end])
 		if err != nil {
 			return nil, err
 		}
@@ -39,17 +39,17 @@ func TextsBatches(ctx context.Context, llm Runner, model string, texts []string,
 	return out, nil
 }
 
-func TextsRecursive(ctx context.Context, llm Runner, model string, texts []string) ([][]float32, error) {
-	return textsRecursive(ctx, llm, model, texts)
+func TextsRecursive(ctx context.Context, llm Runner, texts []string) ([][]float32, error) {
+	return textsRecursive(ctx, llm, texts)
 }
 
-func textsRecursive(ctx context.Context, llm Runner, model string, texts []string) ([][]float32, error) {
+func textsRecursive(ctx context.Context, llm Runner, texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
 	}
 
 	if len(texts) == 1 {
-		v, err := llm.Embed(ctx, model, texts[0])
+		v, err := llm.Embed(ctx, texts[0])
 		if err != nil {
 			return nil, err
 		}
@@ -61,18 +61,18 @@ func textsRecursive(ctx context.Context, llm Runner, model string, texts []strin
 		return [][]float32{v}, nil
 	}
 
-	batch, err := llm.EmbedBatch(ctx, model, texts)
+	batch, err := llm.EmbedBatch(ctx, texts)
 	if err != nil {
-		return splitAndEmbed(ctx, llm, model, texts)
+		return splitAndEmbed(ctx, llm, texts)
 	}
 
 	if len(batch) != len(texts) {
-		return splitAndEmbed(ctx, llm, model, texts)
+		return splitAndEmbed(ctx, llm, texts)
 	}
 
 	for i := range batch {
 		if len(batch[i]) == 0 {
-			one, err := textsRecursive(ctx, llm, model, texts[i:i+1])
+			one, err := textsRecursive(ctx, llm, texts[i:i+1])
 			if err != nil {
 				return nil, err
 			}
@@ -84,9 +84,9 @@ func textsRecursive(ctx context.Context, llm Runner, model string, texts []strin
 	return batch, nil
 }
 
-func splitAndEmbed(ctx context.Context, llm Runner, model string, texts []string) ([][]float32, error) {
+func splitAndEmbed(ctx context.Context, llm Runner, texts []string) ([][]float32, error) {
 	if len(texts) == 1 {
-		return textsRecursive(ctx, llm, model, texts)
+		return textsRecursive(ctx, llm, texts)
 	}
 
 	mid := len(texts) / 2
@@ -94,12 +94,12 @@ func splitAndEmbed(ctx context.Context, llm Runner, model string, texts []string
 		mid = 1
 	}
 
-	a, err := textsRecursive(ctx, llm, model, texts[:mid])
+	a, err := textsRecursive(ctx, llm, texts[:mid])
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := textsRecursive(ctx, llm, model, texts[mid:])
+	b, err := textsRecursive(ctx, llm, texts[mid:])
 	if err != nil {
 		return nil, err
 	}

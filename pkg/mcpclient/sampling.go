@@ -150,7 +150,7 @@ func (sr *SamplingRunner) runCompletion(ctx context.Context, msgs []*domain.Mess
 	model := samplingModelFor(sr)
 	logger.I("MCP sampling: phase=llm_request session_id=%d model=%q runner=%q msgs=%d max_tokens=%d temp=%.4f stops=%d", sr.SessionID, model, sr.RunnerAddr, len(msgs), maxTokens, temperature, len(stops))
 
-	ch, err := sr.LLM.SendMessageOnRunner(ctx, sr.RunnerAddr, sr.SessionID, model, msgs, stops, sr.TimeoutSeconds, &gp)
+	ch, err := sr.LLM.SendMessageOnRunner(ctx, sr.RunnerAddr, model, msgs, stops, sr.TimeoutSeconds, &gp)
 	if err != nil {
 		logger.W("MCP sampling: phase=llm_request_err session_id=%d err=%v", sr.SessionID, err)
 		return "", err

@@ -11,12 +11,12 @@ type stubEmbed struct {
 	calls        int
 }
 
-func (s *stubEmbed) Embed(_ context.Context, _ string, text string) ([]float32, error) {
+func (s *stubEmbed) Embed(_ context.Context, text string) ([]float32, error) {
 	s.calls++
 	return []float32{float32(len(text))}, nil
 }
 
-func (s *stubEmbed) EmbedBatch(_ context.Context, _ string, texts []string) ([][]float32, error) {
+func (s *stubEmbed) EmbedBatch(_ context.Context, texts []string) ([][]float32, error) {
 	s.calls++
 	if s.failBatchLen > 0 && len(texts) > s.failBatchLen {
 		return nil, errors.New("batch too large")
@@ -34,7 +34,7 @@ func TestTextsBatches_recursiveOnBatchError(t *testing.T) {
 	ctx := context.Background()
 	st := &stubEmbed{failBatchLen: 2}
 	texts := []string{"a", "b", "c", "d"}
-	vec, err := TextsBatches(ctx, st, "m", texts, 4)
+	vec, err := TextsBatches(ctx, st, texts, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestTextsBatches_recursiveOnBatchError(t *testing.T) {
 func TestTextsRecursive_mismatchedBatchLengthSplits(t *testing.T) {
 	ctx := context.Background()
 	llm := &badCountEmbed{}
-	vec, err := TextsRecursive(ctx, llm, "m", []string{"x", "y"})
+	vec, err := TextsRecursive(ctx, llm, []string{"x", "y"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,11 +63,11 @@ func TestTextsRecursive_mismatchedBatchLengthSplits(t *testing.T) {
 
 type badCountEmbed struct{}
 
-func (b *badCountEmbed) Embed(context.Context, string, string) ([]float32, error) {
+func (b *badCountEmbed) Embed(context.Context, string) ([]float32, error) {
 	return []float32{1}, nil
 }
 
-func (b *badCountEmbed) EmbedBatch(_ context.Context, _ string, texts []string) ([][]float32, error) {
+func (b *badCountEmbed) EmbedBatch(_ context.Context, texts []string) ([][]float32, error) {
 	if len(texts) == 2 {
 		return [][]float32{{1}}, nil
 	}

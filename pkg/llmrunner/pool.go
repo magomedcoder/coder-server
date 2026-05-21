@@ -147,17 +147,28 @@ func (p *Pool) recordProbeSuccess(addr string, models []string, maxGpuU uint32) 
 	}
 }
 
-func (p *Pool) candidateFromRunnerProbe(addr string, c *LLMRunnerService, pr *llmrunnerpb.RunnerProbeResponse, model string, modelMatters bool) *candidate {
+func runnerProbeModelLoaded(pr *llmrunnerpb.RunnerProbeResponse) bool {
+	if pr == nil {
+		return false
+	}
+
+	lm := pr.GetLoadedModel()
+	return lm != nil && lm.GetLoaded()
+}
+
+func (p *Pool) candidateFromRunnerProbe(addr string, c *LLMRunnerService, pr *llmrunnerpb.RunnerProbeResponse, catalogModels []string, model string, modelMatters bool) *candidate {
 	if pr == nil || !pr.GetBackendConnected() {
 		p.recordProbeFailure(addr)
 		return nil
 	}
 
-	var models []string
-	if si := pr.GetServer(); si != nil {
-		models = si.GetModels()
-	}
+	models := catalogModels
 	gpuU := maxGPUUtil(pr.GetGpus())
+
+	if !runnerProbeModelLoaded(pr) {
+		p.recordProbeSuccess(addr, models, gpuU)
+		return nil
+	}
 
 	if modelMatters && !modelAllowed(model, models) {
 		p.recordProbeSuccess(addr, models, gpuU)
@@ -182,7 +193,12 @@ func (p *Pool) probeRunnerAddress(ctx context.Context, addr, model string, model
 		return nil
 	}
 
-	return p.candidateFromRunnerProbe(addr, c, pr, model, modelMatters)
+	var catalogModels []string
+	if modelMatters {
+		catalogModels, _ = c.GetModels(ctx)
+	}
+
+	return p.candidateFromRunnerProbe(addr, c, pr, catalogModels, model, modelMatters)
 }
 
 func modelAllowed(requested string, serverModels []string) bool {
@@ -243,7 +259,6 @@ func serverFromProto(si *llmrunnerpb.ServerInfo) *ServerInfo {
 		Arch:          si.GetArch(),
 		CPUCores:      si.GetCpuCores(),
 		MemoryTotalMB: si.GetMemoryTotalMb(),
-		Models:        append([]string(nil), si.GetModels()...),
 	}
 }
 
@@ -390,9 +405,7 @@ func (p *Pool) WarmModelOnRunner(ctx context.Context, address string, model stri
 		return err
 	}
 
-	_, err = c.Embed(ctx, model, "warmup")
-
-	return err
+	return c.LoadModel(ctx, model)
 }
 
 type candidate struct {
@@ -487,6 +500,9 @@ func (p *Pool) pickRunner(ctx context.Context, model string) (*LLMRunnerService,
 	}
 
 	if len(found) == 0 {
+		if p.anyRunnerRespondsWithoutLoadedModel(probeCtx, addrs) {
+			return nil, "", domain.ErrRunnerModelNotLoaded
+		}
 		return nil, "", fmt.Errorf("ни один gen-runner не отвечает по gRPC")
 	}
 
@@ -604,7 +620,6 @@ func (p *Pool) GetModels(ctx context.Context) ([]string, error) {
 
 func (p *Pool) SendMessage(
 	ctx context.Context,
-	sessionID int64,
 	model string,
 	messages []*domain.Message,
 	stopSequences []string,
@@ -618,7 +633,7 @@ func (p *Pool) SendMessage(
 
 	ai := p.getOrCreateInflight(addr)
 	ai.Add(1)
-	ch, err := client.SendMessage(ctx, sessionID, model, messages, stopSequences, timeoutSeconds, genParams)
+	ch, err := client.SendMessage(ctx, model, messages, stopSequences, timeoutSeconds, genParams)
 	if err != nil {
 		ai.Add(-1)
 		return nil, err
@@ -627,10 +642,51 @@ func (p *Pool) SendMessage(
 	return forwardStream(ch, ai), nil
 }
 
+func (p *Pool) anyRunnerRespondsWithoutLoadedModel(ctx context.Context, addrs []string) bool {
+	for _, addr := range addrs {
+		c, err := p.getClient(addr)
+		if err != nil {
+			continue
+		}
+
+		pr, err := c.RunnerProbe(ctx)
+		if err != nil || pr == nil || !pr.GetBackendConnected() {
+			continue
+		}
+
+		if !runnerProbeModelLoaded(pr) {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Pool) RequireChatModelLoaded(ctx context.Context, runnerAddr string) error {
+	runnerAddr = strings.TrimSpace(runnerAddr)
+	if runnerAddr == "" {
+		return fmt.Errorf("runner address is empty")
+	}
+
+	c, err := p.getClient(runnerAddr)
+	if err != nil {
+		return err
+	}
+
+	lm, err := c.GetLoadedModel(ctx)
+	if err != nil {
+		return fmt.Errorf("GetLoadedModel %s: %w", runnerAddr, err)
+	}
+
+	if lm == nil || !lm.GetLoaded() {
+		return domain.ErrRunnerModelNotLoaded
+	}
+
+	return nil
+}
+
 func (p *Pool) SendMessageOnRunner(
 	ctx context.Context,
 	runnerAddr string,
-	sessionID int64,
 	model string,
 	messages []*domain.Message,
 	stopSequences []string,
@@ -642,6 +698,10 @@ func (p *Pool) SendMessageOnRunner(
 		return nil, fmt.Errorf("runner address is empty")
 	}
 
+	if err := p.RequireChatModelLoaded(ctx, runnerAddr); err != nil {
+		return nil, err
+	}
+
 	client, err := p.getClient(runnerAddr)
 	if err != nil {
 		return nil, err
@@ -649,7 +709,7 @@ func (p *Pool) SendMessageOnRunner(
 
 	ai := p.getOrCreateInflight(runnerAddr)
 	ai.Add(1)
-	ch, err := client.SendMessage(ctx, sessionID, model, messages, stopSequences, timeoutSeconds, genParams)
+	ch, err := client.SendMessage(ctx, model, messages, stopSequences, timeoutSeconds, genParams)
 	if err != nil {
 		ai.Add(-1)
 		return nil, err
@@ -658,9 +718,13 @@ func (p *Pool) SendMessageOnRunner(
 	return forwardStream(ch, ai), nil
 }
 
-func (p *Pool) Embed(ctx context.Context, model string, text string) ([]float32, error) {
-	client, addr, err := p.pickRunner(ctx, model)
+func (p *Pool) Embed(ctx context.Context, text string) ([]float32, error) {
+	client, addr, err := p.pickRunner(ctx, "")
 	if err != nil {
+		return nil, err
+	}
+
+	if err := p.RequireChatModelLoaded(ctx, addr); err != nil {
 		return nil, err
 	}
 
@@ -668,12 +732,16 @@ func (p *Pool) Embed(ctx context.Context, model string, text string) ([]float32,
 	ai.Add(1)
 	defer ai.Add(-1)
 
-	return client.Embed(ctx, model, text)
+	return client.Embed(ctx, text)
 }
 
-func (p *Pool) EmbedBatch(ctx context.Context, model string, texts []string) ([][]float32, error) {
-	client, addr, err := p.pickRunner(ctx, model)
+func (p *Pool) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	client, addr, err := p.pickRunner(ctx, "")
 	if err != nil {
+		return nil, err
+	}
+
+	if err := p.RequireChatModelLoaded(ctx, addr); err != nil {
 		return nil, err
 	}
 
@@ -681,5 +749,5 @@ func (p *Pool) EmbedBatch(ctx context.Context, model string, texts []string) ([]
 	ai.Add(1)
 	defer ai.Add(-1)
 
-	return client.EmbedBatch(ctx, model, texts)
+	return client.EmbedBatch(ctx, texts)
 }

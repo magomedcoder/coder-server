@@ -23,6 +23,10 @@ type mockStreamRunner struct {
 	chunks        []*llmrunnerpb.ChatResponse
 }
 
+func (m *mockStreamRunner) GetLoadedModel(context.Context, *llmrunnerpb.Empty) (*llmrunnerpb.GetLoadedModelResponse, error) {
+	return &llmrunnerpb.GetLoadedModelResponse{Loaded: true, DisplayName: "test"}, nil
+}
+
 func (m *mockStreamRunner) SendMessage(req *llmrunnerpb.SendMessageRequest, stream grpc.ServerStreamingServer[llmrunnerpb.ChatResponse]) error {
 	if m.assertRequest != nil {
 		m.assertRequest(m.t, req)
@@ -123,7 +127,7 @@ func TestSendMessage_bufconn_visionRequestAndStream(t *testing.T) {
 		},
 	}
 
-	ch, err := runner.SendMessage(ctx, 7, "m", domainMsgs, nil, 30, nil)
+	ch, err := runner.SendMessage(ctx, "m", domainMsgs, nil, 30, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

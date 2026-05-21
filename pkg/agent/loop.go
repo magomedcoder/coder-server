@@ -114,7 +114,7 @@ func runLoop(ctx context.Context, cfg Config, maxRounds int, out chan<- chatstre
 
 	for round := range maxRounds {
 		logger.I("agent: session_id=%d round=%d/%d phase=llm_request", cfg.SessionID, round+1, maxRounds)
-		ch, err := cfg.LLM.SendMessageOnRunner(ctx, cfg.RunnerAddr, cfg.SessionID, cfg.Model, history, cfg.StopSequences, cfg.TimeoutSeconds, toolloop.RunnerInferenceParams(gp, history))
+		ch, err := cfg.LLM.SendMessageOnRunner(ctx, cfg.RunnerAddr, cfg.Model, history, cfg.StopSequences, cfg.TimeoutSeconds, toolloop.RunnerInferenceParams(gp, history))
 		if err != nil {
 			sendErr(err)
 			return

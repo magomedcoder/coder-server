@@ -14,7 +14,6 @@ type ServerInfo struct {
 	Arch          string
 	CPUCores      int32
 	MemoryTotalMB uint64
-	Models        []string
 }
 
 type LoadedModelStatus struct {

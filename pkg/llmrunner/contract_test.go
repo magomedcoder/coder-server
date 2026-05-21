@@ -30,6 +30,30 @@ func TestContract_SendMessageRequest_renderedPromptField(t *testing.T) {
 	}
 }
 
+func TestContract_SendMessageRequest_hasNoModelField(t *testing.T) {
+	t.Parallel()
+	d := (&llmrunnerpb.SendMessageRequest{}).ProtoReflect().Descriptor()
+	if d.Fields().ByName("model") != nil {
+		t.Fatal("SendMessageRequest.model must not exist — use LoadModel before SendMessage")
+	}
+}
+
+func TestContract_EmbedRequest_hasNoModelField(t *testing.T) {
+	t.Parallel()
+	d := (&llmrunnerpb.EmbedRequest{}).ProtoReflect().Descriptor()
+	if d.Fields().ByName("model") != nil {
+		t.Fatal("EmbedRequest.model must not exist — use LoadModel before Embed")
+	}
+}
+
+func TestContract_EmbedBatchRequest_hasNoModelField(t *testing.T) {
+	t.Parallel()
+	d := (&llmrunnerpb.EmbedBatchRequest{}).ProtoReflect().Descriptor()
+	if d.Fields().ByName("model") != nil {
+		t.Fatal("EmbedBatchRequest.model must not exist — use LoadModel before EmbedBatch")
+	}
+}
+
 func TestContract_GenerationParams_hasNoToolsField(t *testing.T) {
 	t.Parallel()
 	d := (&llmrunnerpb.GenerationParams{}).ProtoReflect().Descriptor()
