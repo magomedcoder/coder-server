@@ -105,7 +105,7 @@ func TestRun_finalAnswerNoTools(t *testing.T) {
 		text += c.Text
 	}
 
-	if !strings.Contains(text, "Hello") && !strings.Contains(text, "world") {
+	if !strings.Contains(text, "Привет") {
 		t.Fatalf("stream: %q", text)
 	}
 

@@ -271,7 +271,15 @@ func (s *LLMRunnerService) sendMessageStream(
 	if timeoutSeconds > 0 {
 		req.TimeoutSeconds = &timeoutSeconds
 	}
-	applyRenderedPromptToRequest(req, genParams)
+
+	gpForRunner := genParams
+	if gpForRunner != nil {
+		if prepared, err := runnerprompt.EnsureRenderedPrompt(gpForRunner, messages); err == nil {
+			gpForRunner = prepared
+		}
+	}
+
+	applyRenderedPromptToRequest(req, gpForRunner)
 
 	if nv := countRunnerVisionAttachments(messages); nv > 0 {
 		logger.I("Runner gRPC client: phase=vision_attachments session_id=%d model=%q messages_with_image_payload=%d", sessionID, modelName, nv)

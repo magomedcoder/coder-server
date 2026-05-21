@@ -14,6 +14,7 @@ import (
 	"github.com/magomedcoder/gen/pkg/llmrunner"
 	"github.com/magomedcoder/gen/pkg/logger"
 	"github.com/magomedcoder/gen/pkg/mcpclient"
+	"github.com/magomedcoder/gen/pkg/runnerprompt"
 )
 
 func SamplingGenParamsForMCP(gp *domain.GenerationParams) *domain.GenerationParams {
@@ -25,6 +26,7 @@ func SamplingGenParamsForMCP(gp *domain.GenerationParams) *domain.GenerationPara
 	out.Tools = nil
 	out.ResponseFormat = nil
 	out.RenderedPrompt = ""
+	out.ChatTemplateJinja = ""
 
 	return &out
 }
@@ -37,11 +39,12 @@ func CloneGenParamsForToolCalls(in *domain.GenerationParams) *domain.GenerationP
 	out := *in
 	out.ResponseFormat = nil
 	out.RenderedPrompt = ""
+	out.ChatTemplateJinja = ""
 
 	return &out
 }
 
-func RunnerInferenceParams(in *domain.GenerationParams) *domain.GenerationParams {
+func RunnerInferenceParams(in *domain.GenerationParams, messages []*domain.Message) *domain.GenerationParams {
 	if in == nil {
 		return nil
 	}
@@ -50,6 +53,22 @@ func RunnerInferenceParams(in *domain.GenerationParams) *domain.GenerationParams
 	out.Tools = nil
 	out.ResponseFormat = nil
 	out.RenderedPrompt = ""
+	out.ChatTemplateJinja = ""
+
+	if rp := strings.TrimSpace(in.RenderedPrompt); rp != "" {
+		out.RenderedPrompt = rp
+		return &out
+	}
+
+	tmpl := strings.TrimSpace(in.ChatTemplateJinja)
+	if tmpl == "" {
+		return &out
+	}
+
+	prepared := runnerprompt.PrepareMessagesForRunner(messages)
+	if p, err := runnerprompt.BuildChatPrompt(tmpl, prepared); err == nil {
+		out.RenderedPrompt = p
+	}
 
 	return &out
 }

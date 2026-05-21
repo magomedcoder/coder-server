@@ -151,7 +151,8 @@ type GenerationParams struct {
 	EnableThinking *bool
 	ResponseFormat *ResponseFormat
 	Tools          []Tool
-	RenderedPrompt string
+	ChatTemplateJinja string
+	RenderedPrompt    string
 }
 
 type LLMRepository interface {
