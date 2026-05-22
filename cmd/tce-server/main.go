@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/magomedcoder/tce-server/internal/app"
-	"github.com/magomedcoder/tce-server/internal/config"
+	"github.com/magomedcoder/coder-server/internal/app"
+	"github.com/magomedcoder/coder-server/internal/config"
 	"log"
 )
 

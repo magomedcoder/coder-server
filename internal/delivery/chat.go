@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/magomedcoder/tce-server/internal/domain"
-	"github.com/magomedcoder/tce-server/internal/mapper"
+	"github.com/magomedcoder/coder-server/internal/domain"
+	"github.com/magomedcoder/coder-server/internal/mapper"
 )
 
 func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {

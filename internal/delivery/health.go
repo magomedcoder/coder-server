@@ -3,7 +3,7 @@ package delivery
 import (
 	"net/http"
 
-	"github.com/magomedcoder/tce-server/internal/domain"
+	"github.com/magomedcoder/coder-server/internal/domain"
 )
 
 func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {

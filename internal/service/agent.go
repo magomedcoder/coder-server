@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/magomedcoder/tce-server/internal/config"
+	"github.com/magomedcoder/coder-server/internal/config"
 	"strings"
 
 	gendomain "github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/tce-server/internal/domain"
-	"github.com/magomedcoder/tce-server/internal/mapper"
+	"github.com/magomedcoder/coder-server/internal/domain"
+	"github.com/magomedcoder/coder-server/internal/mapper"
 )
 
 type AgentService struct {
@@ -68,7 +68,7 @@ func (s *AgentService) agentGenerationParams() *gendomain.GenerationParams {
 	}
 }
 
-const agentStepSystemPromptText = `You are an autonomous coding agent for the Tce editor.
+const agentStepSystemPromptText = `You are an autonomous coding agent for the Coder editor.
 Respond with a single JSON object only (no markdown fences):
 {"finish":boolean,"summary":string,"calls":[{"tool":string,"id":string,"args":object}]}
 Available tools: list_dir, read_file, glob_search, search_content, apply_patch, create_file, run_command.

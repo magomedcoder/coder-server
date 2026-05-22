@@ -2,12 +2,12 @@ package mapper
 
 import (
 	"fmt"
-	"github.com/magomedcoder/tce-server/internal/config"
+	"github.com/magomedcoder/coder-server/internal/config"
 	"strings"
 	"time"
 
 	gendomain "github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/tce-server/internal/domain"
+	"github.com/magomedcoder/coder-server/internal/domain"
 )
 
 func RunnerMessages(system string, input []domain.ChatMessage, editor *domain.EditorContext) []*gendomain.Message {

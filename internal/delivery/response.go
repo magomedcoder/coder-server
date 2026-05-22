@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/magomedcoder/tce-server/internal/domain"
+	"github.com/magomedcoder/coder-server/internal/domain"
 )
 
 func writeMethodNotAllowed(w http.ResponseWriter, expected string) {

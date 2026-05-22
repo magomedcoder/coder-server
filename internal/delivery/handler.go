@@ -2,12 +2,12 @@ package delivery
 
 import (
 	"context"
-	"github.com/magomedcoder/tce-server/internal/config"
+	"github.com/magomedcoder/coder-server/internal/config"
 	"net/http"
 	"strings"
 
-	"github.com/magomedcoder/tce-server/internal/domain"
-	"github.com/magomedcoder/tce-server/internal/service"
+	"github.com/magomedcoder/coder-server/internal/domain"
+	"github.com/magomedcoder/coder-server/internal/service"
 )
 
 type Handler struct {

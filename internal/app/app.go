@@ -2,12 +2,12 @@ package app
 
 import (
 	"fmt"
-	"github.com/magomedcoder/tce-server/internal/config"
-	"github.com/magomedcoder/tce-server/internal/delivery"
+	"github.com/magomedcoder/coder-server/internal/config"
+	"github.com/magomedcoder/coder-server/internal/delivery"
 	"log"
 	"net/http"
 
-	"github.com/magomedcoder/tce-server/internal/service"
+	"github.com/magomedcoder/coder-server/internal/service"
 )
 
 type App struct {
@@ -50,7 +50,7 @@ func (a *App) Run() error {
 	a.handler.Register(mux)
 
 	addr := a.cfg.ListenAddr()
-	log.Println("Tce-server запущен")
+	log.Println("Coder-server запущен")
 
 	return http.ListenAndServe(addr, delivery.WithCORS(mux))
 }

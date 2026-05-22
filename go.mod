@@ -1,4 +1,4 @@
-module github.com/magomedcoder/tce-server
+module github.com/magomedcoder/coder-server
 
 go 1.26
 
