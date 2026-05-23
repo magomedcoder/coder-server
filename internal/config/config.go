@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/magomedcoder/gen/pkg/llmrunner"
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,12 +26,31 @@ type AgentConfig struct {
 	Temperature float64 `yaml:"temperature"`
 }
 
+type RunnerHintsConfig struct {
+	MaxContextTokens        int `yaml:"max_context_tokens"`
+	LLMHistoryMaxMessages   int `yaml:"llm_history_max_messages"`
+	MaxToolInvocationRounds int `yaml:"max_tool_invocation_rounds"`
+}
+
+type RunnerConfig struct {
+	Addr    string            `yaml:"addr"`
+	Name    string            `yaml:"name"`
+	Enabled *bool             `yaml:"enabled"`
+	Hints   RunnerHintsConfig `yaml:"hints"`
+}
+
+type ContextConfig struct {
+	TokenBudget int `yaml:"token_budget"`
+}
+
 type Config struct {
-	Host       string      `yaml:"host"`
-	Port       int         `yaml:"port"`
-	RunnerAddr string      `yaml:"runner_addr"`
-	Chat       ChatConfig  `yaml:"chat"`
-	Agent      AgentConfig `yaml:"agent"`
+	Host    string         `yaml:"host"`
+	Port    int            `yaml:"port"`
+	Runners []RunnerConfig `yaml:"runners"`
+	APIKey  string         `yaml:"api_key"`
+	Chat    ChatConfig     `yaml:"chat"`
+	Agent   AgentConfig    `yaml:"agent"`
+	Context ContextConfig  `yaml:"context"`
 
 	listenOverride string
 }
@@ -59,10 +79,63 @@ func (c *Config) ChatTimeoutSeconds() int32 {
 	return int32(c.Chat.TimeoutSeconds)
 }
 
+func (c *Config) ContextTokenBudget() int {
+	if c == nil || c.Context.TokenBudget <= 0 {
+		return 8192
+	}
+	return c.Context.TokenBudget
+}
+
 func (c *Config) ListenAddr() string {
 	if c.listenOverride != "" {
 		return c.listenOverride
 	}
 
 	return net.JoinHostPort(strings.TrimSpace(c.Host), strconv.Itoa(c.Port))
+}
+
+func (c *Config) RunnerStates() []llmrunner.RunnerState {
+	if c == nil {
+		return nil
+	}
+
+	states := make([]llmrunner.RunnerState, 0, len(c.Runners))
+	for _, r := range c.Runners {
+		addr := strings.TrimSpace(r.Addr)
+		if addr == "" {
+			continue
+		}
+
+		enabled := true
+		if r.Enabled != nil {
+			enabled = *r.Enabled
+		}
+
+		var hints *llmrunner.RunnerCoreHints
+		if h := r.Hints; h.MaxContextTokens > 0 || h.LLMHistoryMaxMessages > 0 || h.MaxToolInvocationRounds > 0 {
+			hints = &llmrunner.RunnerCoreHints{
+				MaxContextTokens:        h.MaxContextTokens,
+				LLMHistoryMaxMessages:   h.LLMHistoryMaxMessages,
+				MaxToolInvocationRounds: h.MaxToolInvocationRounds,
+			}
+		}
+
+		name := strings.TrimSpace(r.Name)
+		if name == "" {
+			name = addr
+		}
+
+		states = append(states, llmrunner.RunnerState{
+			Address: addr,
+			Name:    name,
+			Enabled: enabled,
+			Hints:   hints,
+		})
+	}
+
+	return states
+}
+
+func (c *Config) AuthEnabled() bool {
+	return c != nil && strings.TrimSpace(c.APIKey) != ""
 }

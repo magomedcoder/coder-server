@@ -6,11 +6,13 @@ type ChatMessage struct {
 }
 
 type ChatRequest struct {
-	Stream   *bool           `json:"stream"`
-	System   *string         `json:"system"`
-	Messages []ChatMessage   `json:"messages"`
-	Editor   *EditorContext  `json:"editor,omitempty"`
-	Generate *GenerateParams `json:"generate,omitempty"`
+	RequestID *string         `json:"request_id,omitempty"`
+	Stream    *bool           `json:"stream"`
+	System    *string         `json:"system"`
+	Messages  []ChatMessage   `json:"messages"`
+	Editor    *EditorContext  `json:"editor,omitempty"`
+	Context   *ChatContext    `json:"context,omitempty"`
+	Generate  *GenerateParams `json:"generate,omitempty"`
 }
 
 type ChatResponse struct {
@@ -32,10 +34,29 @@ type GenerateParams struct {
 }
 
 type AgentStepRequest struct {
+	RequestID    string                 `json:"request_id,omitempty"`
 	SessionID    string                 `json:"session_id,omitempty"`
 	Goal         string                 `json:"goal,omitempty"`
 	Context      map[string]any         `json:"context,omitempty"`
 	Observations []AgentStepObservation `json:"observations,omitempty"`
+}
+
+type HealthResponse struct {
+	OK           bool               `json:"ok"`
+	Runner       *HealthRunnerInfo  `json:"runner,omitempty"`
+	Capabilities *ModelCapabilities `json:"capabilities,omitempty"`
+}
+
+type HealthRunnerInfo struct {
+	Connected   bool   `json:"connected"`
+	ModelLoaded bool   `json:"model_loaded"`
+	Model       string `json:"model,omitempty"`
+	Address     string `json:"address,omitempty"`
+}
+
+type ModelCapabilities struct {
+	MaxContextTokens int  `json:"max_context_tokens,omitempty"`
+	JSONMode         bool `json:"json_mode"`
 }
 
 type AgentStepObservation struct {

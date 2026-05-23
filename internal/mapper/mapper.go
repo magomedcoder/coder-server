@@ -1,17 +1,23 @@
 package mapper
 
 import (
-	"fmt"
-	"github.com/magomedcoder/coder-server/internal/config"
 	"strings"
 	"time"
 
-	gendomain "github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/coder-server/internal/config"
+	"github.com/magomedcoder/coder-server/internal/contextbuilder"
 	"github.com/magomedcoder/coder-server/internal/domain"
+	gendomain "github.com/magomedcoder/gen/pkg/domain"
 )
 
-func RunnerMessages(system string, input []domain.ChatMessage, editor *domain.EditorContext) []*gendomain.Message {
-	out := make([]*gendomain.Message, 0, len(input)+2)
+func RunnerMessages(
+	system string,
+	input []domain.ChatMessage,
+	editor *domain.EditorContext,
+	chatCtx *domain.ChatContext,
+	tokenBudget int,
+) []*gendomain.Message {
+	out := make([]*gendomain.Message, 0, len(input)+3)
 	now := time.Now()
 
 	if systemPrompt := strings.TrimSpace(system); systemPrompt != "" {
@@ -22,9 +28,10 @@ func RunnerMessages(system string, input []domain.ChatMessage, editor *domain.Ed
 		})
 	}
 
-	if editorPrompt := EditorPrompt(editor); editorPrompt != "" {
+	builder := contextbuilder.New(tokenBudget)
+	if ctxPrompt := builder.Build(system, editor, chatCtx); ctxPrompt != "" {
 		out = append(out, &gendomain.Message{
-			Content:   editorPrompt,
+			Content:   ctxPrompt,
 			Role:      gendomain.MessageRoleSystem,
 			CreatedAt: now,
 		})
@@ -64,33 +71,4 @@ func GenerateParams(in *domain.GenerateParams, defaults config.GenerateConfig) *
 	}
 
 	return out
-}
-
-func EditorPrompt(editor *domain.EditorContext) string {
-	if editor == nil {
-		return ""
-	}
-
-	parts := make([]string, 0, 5)
-	if p := strings.TrimSpace(editor.Path); p != "" {
-		parts = append(parts, "path: "+p)
-	}
-
-	if l := strings.TrimSpace(editor.Language); l != "" {
-		parts = append(parts, "language: "+l)
-	}
-
-	if editor.CursorLine != nil && editor.CursorColumn != nil {
-		parts = append(parts, fmt.Sprintf("cursor: %d:%d", *editor.CursorLine, *editor.CursorColumn))
-	}
-
-	if s := strings.TrimSpace(editor.Snippet); s != "" {
-		parts = append(parts, "snippet:\n"+s)
-	}
-
-	if len(parts) == 0 {
-		return ""
-	}
-
-	return "Editor context:\n" + strings.Join(parts, "\n")
 }

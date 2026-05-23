@@ -1,9 +1,10 @@
 package main
 
 import (
+	"log"
+
 	"github.com/magomedcoder/coder-server/internal/app"
 	"github.com/magomedcoder/coder-server/internal/config"
-	"log"
 )
 
 func main() {

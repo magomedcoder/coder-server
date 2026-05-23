@@ -7,15 +7,16 @@ import (
 	"github.com/magomedcoder/coder-server/internal/config"
 	"strings"
 
-	gendomain "github.com/magomedcoder/gen/pkg/domain"
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
+	gendomain "github.com/magomedcoder/gen/pkg/domain"
 )
 
 type AgentService struct {
 	llm            *LLMRunnerService
 	cfg            config.AgentConfig
 	timeoutSeconds int32
+	tokenBudget    int
 }
 
 func NewAgentService(llm *LLMRunnerService, cfg *config.Config) *AgentService {
@@ -23,7 +24,15 @@ func NewAgentService(llm *LLMRunnerService, cfg *config.Config) *AgentService {
 		llm:            llm,
 		cfg:            cfg.Agent,
 		timeoutSeconds: cfg.ChatTimeoutSeconds(),
+		tokenBudget:    cfg.ContextTokenBudget(),
 	}
+}
+
+func (s *AgentService) contextTokenBudget() int {
+	if s == nil || s.tokenBudget <= 0 {
+		return 8192
+	}
+	return s.tokenBudget
 }
 
 func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (domain.AgentStepResponse, error) {
@@ -35,7 +44,7 @@ func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (d
 			Role:    "user",
 			Content: user,
 		},
-	}, nil)
+	}, nil, nil, s.contextTokenBudget())
 
 	genParams := s.agentGenerationParams()
 

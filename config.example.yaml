@@ -1,7 +1,12 @@
 host: "127.0.0.1"
 port: 8000
 
-runner_addr: "127.0.0.1:50052"
+runners:
+  - addr: "127.0.0.1:50052"
+    name: local
+
+context:
+  token_budget: 8192
 
 chat:
   timeout_seconds: 300

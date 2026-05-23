@@ -2,6 +2,7 @@ package delivery
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -20,6 +21,9 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		writeBadRequest(w, "некорректное тело JSON")
 		return
 	}
+
+	requestID := resolveRequestID(r.Context(), req.RequestID)
+	log.Printf("request_id=%s chat stream=%v messages=%d", requestID, req.Stream, len(req.Messages))
 
 	if req.Stream == nil {
 		writeBadRequest(w, "поле stream обязательно")
@@ -45,16 +49,16 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages := mapper.RunnerMessages(*req.System, req.Messages, req.Editor)
+	messages := mapper.RunnerMessages(*req.System, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget())
 	genParams := mapper.GenerateParams(req.Generate, h.cfg.Chat.Generate)
 	ch, err := h.llm.SendMessage(r.Context(), messages, nil, h.cfg.ChatTimeoutSeconds(), genParams)
 	if err != nil {
-		mapRunnerError(w, err)
+		h.mapRunnerError(w, err)
 		return
 	}
 
 	if *req.Stream {
-		writeRunnerSSE(w, ch)
+		writeRunnerSSE(w, ch, h.streams)
 		return
 	}
 
