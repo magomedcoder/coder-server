@@ -21,9 +21,15 @@ type ContextSnippet struct {
 	Source   string `json:"source,omitempty"`
 }
 
+type TreeEntry struct {
+	Path string `json:"path,omitempty"`
+	Kind string `json:"kind,omitempty"`
+}
+
 type ChatContext struct {
 	Workspace *WorkspaceContext `json:"workspace,omitempty"`
 	Selection *SelectionContext `json:"selection,omitempty"`
 	Snippets  []ContextSnippet  `json:"snippets,omitempty"`
+	Tree      []TreeEntry       `json:"tree,omitempty"`
 	Extra     map[string]any    `json:"extra,omitempty"`
 }

@@ -27,9 +27,9 @@ func NewAgentSessionStore(maxSteps int) *AgentSessionStore {
 	}
 }
 
-func (st *AgentSessionStore) BeginStep(sessionID, goal string) (domain.AgentStepResponse, bool) {
+func (st *AgentSessionStore) BeginStep(sessionID, goal string) (step int, limited domain.AgentStepResponse, stop bool) {
 	if st == nil || sessionID == "" {
-		return domain.AgentStepResponse{}, false
+		return 0, domain.AgentStepResponse{}, false
 	}
 
 	st.mu.Lock()
@@ -45,15 +45,18 @@ func (st *AgentSessionStore) BeginStep(sessionID, goal string) (domain.AgentStep
 	}
 
 	s.StepCount++
+	step = s.StepCount
+
 	if s.StepCount > st.maxSteps {
-		return domain.AgentStepResponse{
+		return step, domain.AgentStepResponse{
 			Finish:  true,
 			Summary: "Достигнут лимит шагов агента",
 			Calls:   []domain.AgentToolCall{},
+			Step:    step,
 		}, true
 	}
 
-	return domain.AgentStepResponse{}, false
+	return step, domain.AgentStepResponse{}, false
 }
 
 func (st *AgentSessionStore) Reset(sessionID string) {

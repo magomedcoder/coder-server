@@ -9,17 +9,23 @@ runners:
 
 context:
   token_budget: 8192
+  scan_secrets: true
 
 reliability:
   runner_retries: 2
   circuit_breaker_failures: 3
   circuit_breaker_cooldown_seconds: 30
+  max_concurrent_requests: 8
+  queue_wait_seconds: 60
 
 rate_limit:
   requests_per_minute: 120
 
 sse:
   buffer_ttl_seconds: 300
+
+logging:
+  structured: false
 
 chat:
   timeout_seconds: 300
@@ -31,3 +37,6 @@ agent:
   max_tokens: 2048
   temperature: 0.1
   max_steps: 30
+  # allowed_paths: ["src/", "tests/"]
+  blocked_commands: ["rm -rf /", "mkfs.", ":(){ :|:& };:", "curl | sh", "wget | sh", "curl | bash", "wget | bash", "sudo ", "chmod 777 /", "dd if="]
+

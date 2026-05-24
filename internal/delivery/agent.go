@@ -25,9 +25,11 @@ func (h *Handler) handleAgentStep(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.agent.Step(r.Context(), req)
 	if err != nil {
-		mapRunnerError(w, err)
+		h.recordAgentErr()
+		h.mapRunnerError(w, err)
 		return
 	}
 
+	h.recordAgentOK()
 	writeJSON(w, http.StatusOK, resp)
 }

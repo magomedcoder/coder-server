@@ -17,9 +17,11 @@ type LLMRunnerService struct {
 	breaker *CircuitBreaker
 	retries int
 	streams *StreamRegistry
+	queue   *RequestQueue
+	metrics *Metrics
 }
 
-func NewLLMRunnerService(cfg *config.Config) (*LLMRunnerService, error) {
+func NewLLMRunnerService(cfg *config.Config, metrics *Metrics) (*LLMRunnerService, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("конфиг не задан")
 	}
@@ -33,6 +35,8 @@ func NewLLMRunnerService(cfg *config.Config) (*LLMRunnerService, error) {
 		breaker: NewCircuitBreaker(cfg.Reliability.CircuitBreakerFailures, cfg.CircuitBreakerCooldown()),
 		retries: cfg.Reliability.RunnerRetries,
 		streams: NewStreamRegistry(cfg.SSEBufferTTL()),
+		queue:   NewRequestQueue(cfg.Reliability.MaxConcurrentRequests, cfg.QueueWaitTimeout()),
+		metrics: metrics,
 	}, nil
 }
 
@@ -40,15 +44,20 @@ func (s *LLMRunnerService) StreamRegistry() *StreamRegistry {
 	if s == nil {
 		return nil
 	}
-
 	return s.streams
+}
+
+func (s *LLMRunnerService) RequestQueue() *RequestQueue {
+	if s == nil {
+		return nil
+	}
+	return s.queue
 }
 
 func (s *LLMRunnerService) Close() error {
 	if s == nil || s.pool == nil {
 		return nil
 	}
-
 	return s.pool.Close()
 }
 
@@ -130,6 +139,44 @@ func (s *LLMRunnerService) SendMessage(
 		return nil, fmt.Errorf("pool не инициализирован")
 	}
 
+	if s.queue != nil {
+		if err := s.queue.Acquire(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	ch, err := s.sendMessageWithRetry(ctx, messages, stopSequences, timeoutSeconds, genParams)
+	if err != nil {
+		if s.queue != nil {
+			s.queue.Release()
+		}
+		return nil, err
+	}
+
+	return forwardWithQueueRelease(ch, s.queue), nil
+}
+
+func forwardWithQueueRelease(in <-chan gendomain.LLMStreamChunk, q *RequestQueue) chan gendomain.LLMStreamChunk {
+	out := make(chan gendomain.LLMStreamChunk, 100)
+	go func() {
+		defer close(out)
+		if q != nil {
+			defer q.Release()
+		}
+		for chunk := range in {
+			out <- chunk
+		}
+	}()
+	return out
+}
+
+func (s *LLMRunnerService) sendMessageWithRetry(
+	ctx context.Context,
+	messages []*gendomain.Message,
+	stopSequences []string,
+	timeoutSeconds int32,
+	genParams *gendomain.GenerationParams,
+) (chan gendomain.LLMStreamChunk, error) {
 	addrs := s.eligibleRunners()
 	if len(addrs) == 0 {
 		ch, err := s.pool.SendMessage(ctx, messages, stopSequences, timeoutSeconds, genParams)
@@ -214,6 +261,10 @@ func (s *LLMRunnerService) CollectMessage(
 		}
 	}
 
+	if s.metrics != nil && usage != nil {
+		s.metrics.RecordTokens(usage.PromptTokens, usage.CompletionTokens)
+	}
+
 	return CollectResult{Content: full.String(), Usage: usage}, nil
 }
 
@@ -222,6 +273,9 @@ func mapPoolError(err error) error {
 		return nil
 	}
 	if errors.Is(err, gendomain.ErrRunnerModelNotLoaded) {
+		return err
+	}
+	if errors.Is(err, ErrQueueTimeout) {
 		return err
 	}
 	return err

@@ -17,7 +17,9 @@ type AgentService struct {
 	cfg            config.AgentConfig
 	timeoutSeconds int32
 	tokenBudget    int
+	scanSecrets    bool
 	sessions       *AgentSessionStore
+	policy         *AgentPolicy
 }
 
 func NewAgentService(llm *LLMRunnerService, cfg *config.Config) *AgentService {
@@ -26,15 +28,10 @@ func NewAgentService(llm *LLMRunnerService, cfg *config.Config) *AgentService {
 		cfg:            cfg.Agent,
 		timeoutSeconds: cfg.ChatTimeoutSeconds(),
 		tokenBudget:    cfg.ContextTokenBudget(),
+		scanSecrets:    cfg.ContextScanSecrets(),
 		sessions:       NewAgentSessionStore(cfg.Agent.MaxSteps),
+		policy:         NewAgentPolicy(cfg.Agent.AllowedPaths, cfg.Agent.BlockedCommands),
 	}
-}
-
-func (s *AgentService) contextTokenBudget() int {
-	if s == nil || s.tokenBudget <= 0 {
-		return 8192
-	}
-	return s.tokenBudget
 }
 
 func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (domain.AgentStepResponse, error) {
@@ -43,8 +40,12 @@ func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (d
 	}
 
 	sessionID := strings.TrimSpace(req.SessionID)
+	step := 0
 	if sessionID != "" {
-		if limited, stop := s.sessions.BeginStep(sessionID, req.Goal); stop {
+		var limited domain.AgentStepResponse
+		var stop bool
+		step, limited, stop = s.sessions.BeginStep(sessionID, req.Goal)
+		if stop {
 			return limited, nil
 		}
 	}
@@ -54,11 +55,9 @@ func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (d
 
 	messages := mapper.RunnerMessages(system, []domain.ChatMessage{
 		{Role: "user", Content: user},
-	}, nil, nil, s.contextTokenBudget())
+	}, nil, nil, s.tokenBudget, s.scanSecrets)
 
-	genParams := s.agentGenerationParams()
-
-	result, err := s.llm.CollectMessage(ctx, messages, nil, s.timeoutSeconds, genParams)
+	result, err := s.llm.CollectMessage(ctx, messages, nil, s.timeoutSeconds, s.agentGenerationParams())
 	if err != nil {
 		return domain.AgentStepResponse{}, err
 	}
@@ -69,6 +68,7 @@ func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (d
 			Finish:  true,
 			Summary: strings.TrimSpace(result.Content),
 			Calls:   nil,
+			Step:    step,
 		}
 		if sessionID != "" {
 			s.sessions.Reset(sessionID)
@@ -77,6 +77,11 @@ func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (d
 	}
 
 	parsed.Calls = filterAgentToolCalls(parsed.Calls)
+	filtered, blocked := s.policy.FilterCalls(parsed.Calls)
+	parsed.Calls = filtered
+	parsed.Blocked = blocked
+	parsed.Step = step
+
 	if parsed.Finish && sessionID != "" {
 		s.sessions.Reset(sessionID)
 	}
@@ -115,7 +120,8 @@ Respond with a single JSON object only (no markdown fences):
 {"finish":boolean,"summary":string,"calls":[{"tool":string,"id":string,"args":object}]}
 Available tools: list_dir, read_file, glob_search, search_content, apply_patch, create_file, run_command.
 If the goal is complete, set finish=true and calls=[].
-If more work is needed, set finish=false and list tool calls with unique id fields like "call-1".`
+If more work is needed, set finish=false and list tool calls with unique id fields like "call-1".
+When a previous tool call failed (stderr, non-zero exit code), analyze the error and retry with a corrected approach.`
 
 func agentStepSystemPrompt() string {
 	return agentStepSystemPromptText
@@ -136,13 +142,8 @@ func buildAgentStepUserPrompt(req domain.AgentStepRequest) string {
 		fmt.Fprintf(&b, "Context: %s\n", string(ctxJSON))
 	}
 
-	if len(req.Observations) > 0 {
-		b.WriteString("Observations from previous tool calls:\n")
-		for _, obs := range req.Observations {
-			line, _ := json.Marshal(obs)
-			b.Write(line)
-			b.WriteByte('\n')
-		}
+	if obs := FormatObservations(req.Observations); obs != "" {
+		b.WriteString(obs)
 	}
 
 	if b.Len() == 0 {

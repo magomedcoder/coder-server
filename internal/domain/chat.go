@@ -78,6 +78,8 @@ type AgentStepResponse struct {
 	Finish  bool            `json:"finish"`
 	Summary string          `json:"summary"`
 	Calls   []AgentToolCall `json:"calls"`
+	Step    int             `json:"step,omitempty"`
+	Blocked []string        `json:"blocked,omitempty"`
 }
 
 type AgentToolCall struct {

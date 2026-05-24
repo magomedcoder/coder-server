@@ -20,6 +20,7 @@ type App struct {
 	llm     *service.LLMRunnerService
 	handler *delivery.Handler
 	streams *delivery.ActiveStreams
+	metrics *service.Metrics
 	server  *http.Server
 }
 
@@ -28,19 +29,21 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("конфиг не задан")
 	}
 
-	llm, err := service.NewLLMRunnerService(cfg)
+	streams := delivery.NewActiveStreamsTracker()
+	metrics := service.NewMetrics()
+	llm, err := service.NewLLMRunnerService(cfg, metrics)
 	if err != nil {
 		return nil, fmt.Errorf("не удалось инициализировать клиент gen-runner: %w", err)
 	}
 
-	streams := delivery.NewActiveStreamsTracker()
 	agent := service.NewAgentService(llm, cfg)
 
 	return &App{
 		cfg:     cfg,
 		llm:     llm,
-		handler: delivery.NewHandler(cfg, llm, agent, streams),
+		handler: delivery.NewHandler(cfg, llm, agent, streams, metrics),
 		streams: streams,
+		metrics: metrics,
 	}, nil
 }
 
@@ -59,7 +62,7 @@ func (a *App) Run() error {
 	a.handler.Register(mux)
 
 	addr := a.cfg.ListenAddr()
-	inner := delivery.WithMiddleware(a.cfg, a.streams, mux)
+	inner := delivery.WithMiddleware(a.cfg, a.streams, a.metrics, mux)
 	if a.cfg.RateLimitEnabled() {
 		inner = delivery.WithRateLimit(a.cfg.RateLimit.RequestsPerMinute, inner)
 	}

@@ -13,16 +13,18 @@ type Handler struct {
 	llm           *service.LLMRunnerService
 	agent         *service.AgentService
 	activeStreams *ActiveStreams
+	metrics       *service.Metrics
 }
 
-func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, streams *ActiveStreams) *Handler {
-	return &Handler{cfg: cfg, llm: llm, agent: agent, activeStreams: streams}
+func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, streams *ActiveStreams, metrics *service.Metrics) *Handler {
+	return &Handler{cfg: cfg, llm: llm, agent: agent, activeStreams: streams, metrics: metrics}
 }
 
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/health", h.handleHealth)
 	mux.HandleFunc("/v1/health/live", h.handleHealthLive)
 	mux.HandleFunc("/v1/health/ready", h.handleHealthReady)
+	mux.HandleFunc("/v1/metrics", h.handleMetrics)
 	mux.HandleFunc("/v1/chat", h.handleChat)
 	mux.HandleFunc("/v1/chat/stream", h.handleChatStream)
 	mux.HandleFunc("/v1/agent/step", h.handleAgentStep)
@@ -41,4 +43,30 @@ func (h *Handler) ensureRunnerReady(ctx context.Context, w http.ResponseWriter) 
 
 func (h *Handler) mapRunnerError(w http.ResponseWriter, err error) {
 	mapRunnerError(w, err)
+}
+
+func (h *Handler) recordChatOK() {
+	if h.metrics != nil {
+		h.metrics.ChatRequests.Add(1)
+	}
+}
+
+func (h *Handler) recordChatErr() {
+	if h.metrics != nil {
+		h.metrics.ChatRequests.Add(1)
+		h.metrics.ChatErrors.Add(1)
+	}
+}
+
+func (h *Handler) recordAgentOK() {
+	if h.metrics != nil {
+		h.metrics.AgentSteps.Add(1)
+	}
+}
+
+func (h *Handler) recordAgentErr() {
+	if h.metrics != nil {
+		h.metrics.AgentSteps.Add(1)
+		h.metrics.AgentErrors.Add(1)
+	}
 }

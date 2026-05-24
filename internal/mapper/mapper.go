@@ -16,6 +16,7 @@ func RunnerMessages(
 	editor *domain.EditorContext,
 	chatCtx *domain.ChatContext,
 	tokenBudget int,
+	scanSecrets bool,
 ) []*gendomain.Message {
 	out := make([]*gendomain.Message, 0, len(input)+3)
 	now := time.Now()
@@ -28,7 +29,7 @@ func RunnerMessages(
 		})
 	}
 
-	builder := contextbuilder.New(tokenBudget)
+	builder := contextbuilder.New(tokenBudget, scanSecrets)
 	if ctxPrompt := builder.Build(system, editor, chatCtx); ctxPrompt != "" {
 		out = append(out, &gendomain.Message{
 			Content:   ctxPrompt,

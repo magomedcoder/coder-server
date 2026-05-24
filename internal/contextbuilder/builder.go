@@ -5,27 +5,26 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/domain"
+	"github.com/magomedcoder/coder-server/internal/security"
 )
 
 const approxCharsPerToken = 4
 
 type Builder struct {
 	tokenBudget int
+	scanSecrets bool
 }
 
-func New(tokenBudget int) *Builder {
+func New(tokenBudget int, scanSecrets bool) *Builder {
 	if tokenBudget <= 0 {
 		tokenBudget = 8192
 	}
-	return &Builder{tokenBudget: tokenBudget}
+	return &Builder{tokenBudget: tokenBudget, scanSecrets: scanSecrets}
 }
 
 func (b *Builder) Build(system string, editor *domain.EditorContext, ctx *domain.ChatContext) string {
 	reserved := estimateTokens(system) + 512
-	budget := b.tokenBudget - reserved
-	if budget < 256 {
-		budget = 256
-	}
+	budget := max(b.tokenBudget-reserved, 256)
 
 	var parts []contextPart
 
@@ -52,6 +51,13 @@ func (b *Builder) Build(system string, editor *domain.EditorContext, ctx *domain
 					text:     p, tokens: estimateTokens(p),
 				})
 			}
+		}
+		if tree := treePrompt(ctx.Tree); tree != "" {
+			parts = append(parts, contextPart{
+				priority: 4,
+				text:     tree,
+				tokens:   estimateTokens(tree),
+			})
 		}
 	}
 
@@ -81,7 +87,11 @@ func (b *Builder) Build(system string, editor *domain.EditorContext, ctx *domain
 		return ""
 	}
 
-	return strings.Join(selected, "\n\n")
+	out := strings.Join(selected, "\n\n")
+	if b.scanSecrets {
+		out = security.RedactSecrets(out)
+	}
+	return out
 }
 
 type contextPart struct {
@@ -92,7 +102,7 @@ type contextPart struct {
 
 func sortContextParts(parts []contextPart) []contextPart {
 	out := append([]contextPart(nil), parts...)
-	for i := 0; i < len(out); i++ {
+	for i := range out {
 		for j := i + 1; j < len(out); j++ {
 			if out[j].priority < out[i].priority {
 				out[i], out[j] = out[j], out[i]
@@ -239,4 +249,33 @@ func editorContextPrompt(editor *domain.EditorContext) string {
 	}
 
 	return "Active editor:\n" + strings.Join(parts, "\n")
+}
+
+func treePrompt(entries []domain.TreeEntry) string {
+	if len(entries) == 0 {
+		return ""
+	}
+
+	const maxEntries = 200
+	if len(entries) > maxEntries {
+		entries = entries[:maxEntries]
+	}
+
+	var b strings.Builder
+	b.WriteString("Project tree:\n")
+	for _, e := range entries {
+		path := strings.TrimSpace(e.Path)
+		if path == "" {
+			continue
+		}
+		kind := strings.TrimSpace(e.Kind)
+		if kind == "" {
+			kind = "file"
+		}
+		fmt.Fprintf(&b, "- [%s] %s\n", kind, path)
+	}
+	if b.Len() <= len("Project tree:\n") {
+		return ""
+	}
+	return b.String()
 }

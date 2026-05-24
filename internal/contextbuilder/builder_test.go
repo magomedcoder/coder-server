@@ -8,7 +8,7 @@ import (
 )
 
 func TestBuilderPriority(t *testing.T) {
-	b := New(200)
+	b := New(200, true)
 	out := b.Build("", nil, &domain.ChatContext{
 		Selection: &domain.SelectionContext{Text: "selected code"},
 		Snippets: []domain.ContextSnippet{
@@ -30,7 +30,7 @@ func TestBuilderPriority(t *testing.T) {
 }
 
 func TestBuilderTrimsToBudget(t *testing.T) {
-	b := New(600)
+	b := New(600, false)
 	huge := strings.Repeat("x", 10000)
 	out := b.Build("", nil, &domain.ChatContext{
 		Selection: &domain.SelectionContext{Text: huge},

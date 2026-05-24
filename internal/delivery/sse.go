@@ -11,7 +11,7 @@ import (
 	gendomain "github.com/magomedcoder/gen/pkg/domain"
 )
 
-func writeRunnerSSE(ctx context.Context, w http.ResponseWriter, chunks <-chan gendomain.LLMStreamChunk, streams *ActiveStreams, session *service.StreamSession) {
+func writeRunnerSSE(ctx context.Context, w http.ResponseWriter, chunks <-chan gendomain.LLMStreamChunk, streams *ActiveStreams, session *service.StreamSession, metrics *service.Metrics) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -60,6 +60,9 @@ func writeRunnerSSE(ctx context.Context, w http.ResponseWriter, chunks <-chan ge
 						"prompt_tokens":     usage.PromptTokens,
 						"completion_tokens": usage.CompletionTokens,
 						"total_tokens":      usage.TotalTokens,
+					}
+					if metrics != nil {
+						metrics.RecordTokens(usage.PromptTokens, usage.CompletionTokens)
 					}
 				}
 				raw, _ := json.Marshal(endData)

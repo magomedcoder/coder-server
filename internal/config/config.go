@@ -23,9 +23,11 @@ type ChatConfig struct {
 }
 
 type AgentConfig struct {
-	MaxTokens   int     `yaml:"max_tokens"`
-	Temperature float64 `yaml:"temperature"`
-	MaxSteps    int     `yaml:"max_steps"`
+	MaxTokens       int      `yaml:"max_tokens"`
+	Temperature     float64  `yaml:"temperature"`
+	MaxSteps        int      `yaml:"max_steps"`
+	AllowedPaths    []string `yaml:"allowed_paths"`
+	BlockedCommands []string `yaml:"blocked_commands"`
 }
 
 type RunnerHintsConfig struct {
@@ -42,13 +44,16 @@ type RunnerConfig struct {
 }
 
 type ContextConfig struct {
-	TokenBudget int `yaml:"token_budget"`
+	TokenBudget int   `yaml:"token_budget"`
+	ScanSecrets *bool `yaml:"scan_secrets"`
 }
 
 type ReliabilityConfig struct {
 	RunnerRetries              int `yaml:"runner_retries"`
 	CircuitBreakerFailures     int `yaml:"circuit_breaker_failures"`
 	CircuitBreakerCooldownSecs int `yaml:"circuit_breaker_cooldown_seconds"`
+	MaxConcurrentRequests      int `yaml:"max_concurrent_requests"`
+	QueueWaitSeconds           int `yaml:"queue_wait_seconds"`
 }
 
 type RateLimitConfig struct {
@@ -57,6 +62,10 @@ type RateLimitConfig struct {
 
 type SSEConfig struct {
 	BufferTTLSeconds int `yaml:"buffer_ttl_seconds"`
+}
+
+type LoggingConfig struct {
+	Structured bool `yaml:"structured"`
 }
 
 type Config struct {
@@ -70,6 +79,7 @@ type Config struct {
 	Reliability ReliabilityConfig `yaml:"reliability"`
 	RateLimit   RateLimitConfig   `yaml:"rate_limit"`
 	SSE         SSEConfig         `yaml:"sse"`
+	Logging     LoggingConfig     `yaml:"logging"`
 
 	listenOverride string
 }
@@ -88,13 +98,120 @@ func Load(path string) (*Config, error) {
 		}
 	}
 
+	c.applyDefaults()
 	return c, nil
+}
+
+func (c *Config) applyDefaults() {
+	if c == nil {
+		return
+	}
+
+	if c.Host == "" {
+		c.Host = "127.0.0.1"
+	}
+
+	if c.Port <= 0 {
+		c.Port = 8000
+	}
+
+	if c.Chat.TimeoutSeconds <= 0 {
+		c.Chat.TimeoutSeconds = 300
+	}
+
+	if c.Chat.Generate.MaxTokens <= 0 {
+		c.Chat.Generate.MaxTokens = 1024
+	}
+
+	if c.Chat.Generate.Temperature <= 0 {
+		c.Chat.Generate.Temperature = 0.2
+	}
+
+	if c.Agent.MaxTokens <= 0 {
+		c.Agent.MaxTokens = 2048
+	}
+
+	if c.Agent.Temperature <= 0 {
+		c.Agent.Temperature = 0.1
+	}
+
+	if c.Agent.MaxSteps <= 0 {
+		c.Agent.MaxSteps = 30
+	}
+
+	if len(c.Agent.BlockedCommands) == 0 {
+		c.Agent.BlockedCommands = defaultBlockedCommands()
+	}
+
+	if c.Context.TokenBudget <= 0 {
+		c.Context.TokenBudget = 8192
+	}
+
+	if c.Context.ScanSecrets == nil {
+		v := true
+		c.Context.ScanSecrets = &v
+	}
+
+	if c.Reliability.RunnerRetries <= 0 {
+		c.Reliability.RunnerRetries = 2
+	}
+
+	if c.Reliability.CircuitBreakerFailures <= 0 {
+		c.Reliability.CircuitBreakerFailures = 3
+	}
+	if c.Reliability.CircuitBreakerCooldownSecs <= 0 {
+		c.Reliability.CircuitBreakerCooldownSecs = 30
+	}
+
+	if c.Reliability.MaxConcurrentRequests <= 0 {
+		c.Reliability.MaxConcurrentRequests = 8
+	}
+
+	if c.Reliability.QueueWaitSeconds <= 0 {
+		c.Reliability.QueueWaitSeconds = 60
+	}
+
+	if c.RateLimit.RequestsPerMinute <= 0 {
+		c.RateLimit.RequestsPerMinute = 120
+	}
+
+	if c.SSE.BufferTTLSeconds <= 0 {
+		c.SSE.BufferTTLSeconds = 300
+	}
+
+	c.ensureDefaultRunners()
+}
+
+func defaultBlockedCommands() []string {
+	return []string{
+		"rm -rf /",
+		"mkfs.",
+		":(){ :|:& };:",
+		"curl | sh",
+		"wget | sh",
+		"curl | bash",
+		"wget | bash",
+		"sudo ",
+		"chmod 777 /",
+		"dd if=",
+	}
+}
+
+func (c *Config) ensureDefaultRunners() {
+	if c == nil || len(c.Runners) > 0 {
+		return
+	}
+	c.Runners = []RunnerConfig{{
+		Addr: "127.0.0.1:50052",
+		Name: "local",
+	}}
 }
 
 func (c *Config) ChatTimeoutSeconds() int32 {
 	if c == nil || c.Chat.TimeoutSeconds <= 0 {
 		return 300
 	}
+
 	return int32(c.Chat.TimeoutSeconds)
 }
 
@@ -102,7 +219,16 @@ func (c *Config) ContextTokenBudget() int {
 	if c == nil || c.Context.TokenBudget <= 0 {
 		return 8192
 	}
+
 	return c.Context.TokenBudget
+}
+
+func (c *Config) ContextScanSecrets() bool {
+	if c == nil || c.Context.ScanSecrets == nil {
+		return true
+	}
+
+	return *c.Context.ScanSecrets
 }
 
 func (c *Config) SSEBufferTTL() time.Duration {
@@ -119,6 +245,14 @@ func (c *Config) CircuitBreakerCooldown() time.Duration {
 	}
 
 	return time.Duration(c.Reliability.CircuitBreakerCooldownSecs) * time.Second
+}
+
+func (c *Config) QueueWaitTimeout() time.Duration {
+	if c == nil || c.Reliability.QueueWaitSeconds <= 0 {
+		return 60 * time.Second
+	}
+
+	return time.Duration(c.Reliability.QueueWaitSeconds) * time.Second
 }
 
 func (c *Config) ListenAddr() string {

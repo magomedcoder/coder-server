@@ -26,7 +26,7 @@ func RequestIDFromContext(ctx context.Context) string {
 	return ""
 }
 
-func WithMiddleware(cfg *config.Config, streams *ActiveStreams, next http.Handler) http.Handler {
+func WithMiddleware(cfg *config.Config, streams *ActiveStreams, metrics *service.Metrics, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodOptions {
 			next.ServeHTTP(w, r)
@@ -51,14 +51,23 @@ func WithMiddleware(cfg *config.Config, streams *ActiveStreams, next http.Handle
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 
-		log.Printf("request_id=%s method=%s path=%s duration_ms=%d active_streams=%d",
-			requestID, r.Method, r.URL.Path, time.Since(start).Milliseconds(), streams.Count())
+		durationMs := time.Since(start).Milliseconds()
+		if metrics != nil {
+			metrics.RecordRequest(durationMs)
+		}
+		if cfg != nil && cfg.Logging.Structured {
+			log.Printf(`{"request_id":%q,"method":%q,"path":%q,"duration_ms":%d,"active_streams":%d}`,
+				requestID, r.Method, r.URL.Path, durationMs, streams.Count())
+		} else {
+			log.Printf("request_id=%s method=%s path=%s duration_ms=%d active_streams=%d",
+				requestID, r.Method, r.URL.Path, durationMs, streams.Count())
+		}
 	})
 }
 
 func isPublicPath(path string) bool {
 	switch path {
-	case "/v1/health", "/v1/health/live", "/v1/health/ready":
+	case "/v1/health", "/v1/health/live", "/v1/health/ready", "/v1/metrics":
 		return true
 	default:
 		return false
@@ -95,6 +104,10 @@ func resolveRequestID(ctx context.Context, bodyID *string) string {
 func mapRunnerError(w http.ResponseWriter, err error) {
 	if errors.Is(err, domain.ErrRunnerModelNotLoaded()) {
 		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", "модель не загружена на gen-runner"))
+		return
+	}
+	if errors.Is(err, service.ErrQueueTimeout) {
+		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("overloaded", "сервер перегружен, повторите позже"))
 		return
 	}
 

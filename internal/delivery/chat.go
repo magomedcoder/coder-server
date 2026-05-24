@@ -32,13 +32,15 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !h.ensureRunnerReady(r.Context(), w) {
+		h.recordChatErr()
 		return
 	}
 
-	messages := mapper.RunnerMessages(*req.System, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget())
+	messages := mapper.RunnerMessages(*req.System, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget(), h.cfg.ContextScanSecrets())
 	genParams := mapper.GenerateParams(req.Generate, h.cfg.Chat.Generate)
 	ch, err := h.llm.SendMessage(r.Context(), messages, nil, h.cfg.ChatTimeoutSeconds(), genParams)
 	if err != nil {
+		h.recordChatErr()
 		h.mapRunnerError(w, err)
 		return
 	}
@@ -48,7 +50,8 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		if reg := h.llm.StreamRegistry(); reg != nil {
 			session = reg.Start(requestID)
 		}
-		writeRunnerSSE(r.Context(), w, ch, h.activeStreams, session)
+		h.recordChatOK()
+		writeRunnerSSE(r.Context(), w, ch, h.activeStreams, session, h.metrics)
 		return
 	}
 
@@ -60,9 +63,13 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 		if chunk.Usage != nil {
 			usage = mapper.TokenUsage(chunk.Usage)
+			if h.metrics != nil {
+				h.metrics.RecordTokens(chunk.Usage.PromptTokens, chunk.Usage.CompletionTokens)
+			}
 		}
 	}
 
+	h.recordChatOK()
 	writeJSON(w, http.StatusOK, domain.ChatResponse{
 		Message: domain.ChatMessage{
 			Role:    "assistant",
