@@ -18,6 +18,13 @@ type ChatRequest struct {
 type ChatResponse struct {
 	Message ChatMessage `json:"message"`
 	Finish  string      `json:"finish"`
+	Usage   *TokenUsage `json:"usage,omitempty"`
+}
+
+type TokenUsage struct {
+	PromptTokens     int32 `json:"prompt_tokens,omitempty"`
+	CompletionTokens int32 `json:"completion_tokens,omitempty"`
+	TotalTokens      int32 `json:"total_tokens,omitempty"`
 }
 
 type EditorContext struct {

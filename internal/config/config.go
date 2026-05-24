@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/magomedcoder/gen/pkg/llmrunner"
 	"gopkg.in/yaml.v3"
@@ -24,6 +25,7 @@ type ChatConfig struct {
 type AgentConfig struct {
 	MaxTokens   int     `yaml:"max_tokens"`
 	Temperature float64 `yaml:"temperature"`
+	MaxSteps    int     `yaml:"max_steps"`
 }
 
 type RunnerHintsConfig struct {
@@ -43,14 +45,31 @@ type ContextConfig struct {
 	TokenBudget int `yaml:"token_budget"`
 }
 
+type ReliabilityConfig struct {
+	RunnerRetries              int `yaml:"runner_retries"`
+	CircuitBreakerFailures     int `yaml:"circuit_breaker_failures"`
+	CircuitBreakerCooldownSecs int `yaml:"circuit_breaker_cooldown_seconds"`
+}
+
+type RateLimitConfig struct {
+	RequestsPerMinute int `yaml:"requests_per_minute"`
+}
+
+type SSEConfig struct {
+	BufferTTLSeconds int `yaml:"buffer_ttl_seconds"`
+}
+
 type Config struct {
-	Host    string         `yaml:"host"`
-	Port    int            `yaml:"port"`
-	Runners []RunnerConfig `yaml:"runners"`
-	APIKey  string         `yaml:"api_key"`
-	Chat    ChatConfig     `yaml:"chat"`
-	Agent   AgentConfig    `yaml:"agent"`
-	Context ContextConfig  `yaml:"context"`
+	Host        string            `yaml:"host"`
+	Port        int               `yaml:"port"`
+	Runners     []RunnerConfig    `yaml:"runners"`
+	APIKey      string            `yaml:"api_key"`
+	Chat        ChatConfig        `yaml:"chat"`
+	Agent       AgentConfig       `yaml:"agent"`
+	Context     ContextConfig     `yaml:"context"`
+	Reliability ReliabilityConfig `yaml:"reliability"`
+	RateLimit   RateLimitConfig   `yaml:"rate_limit"`
+	SSE         SSEConfig         `yaml:"sse"`
 
 	listenOverride string
 }
@@ -84,6 +103,22 @@ func (c *Config) ContextTokenBudget() int {
 		return 8192
 	}
 	return c.Context.TokenBudget
+}
+
+func (c *Config) SSEBufferTTL() time.Duration {
+	if c == nil || c.SSE.BufferTTLSeconds <= 0 {
+		return 5 * time.Minute
+	}
+
+	return time.Duration(c.SSE.BufferTTLSeconds) * time.Second
+}
+
+func (c *Config) CircuitBreakerCooldown() time.Duration {
+	if c == nil || c.Reliability.CircuitBreakerCooldownSecs <= 0 {
+		return 30 * time.Second
+	}
+
+	return time.Duration(c.Reliability.CircuitBreakerCooldownSecs) * time.Second
 }
 
 func (c *Config) ListenAddr() string {
@@ -138,4 +173,8 @@ func (c *Config) RunnerStates() []llmrunner.RunnerState {
 
 func (c *Config) AuthEnabled() bool {
 	return c != nil && strings.TrimSpace(c.APIKey) != ""
+}
+
+func (c *Config) RateLimitEnabled() bool {
+	return c != nil && c.RateLimit.RequestsPerMinute > 0
 }

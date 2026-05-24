@@ -59,7 +59,11 @@ func (a *App) Run() error {
 	a.handler.Register(mux)
 
 	addr := a.cfg.ListenAddr()
-	handler := delivery.WithCORS(delivery.WithMiddleware(a.cfg, a.streams, mux))
+	inner := delivery.WithMiddleware(a.cfg, a.streams, mux)
+	if a.cfg.RateLimitEnabled() {
+		inner = delivery.WithRateLimit(a.cfg.RateLimit.RequestsPerMinute, inner)
+	}
+	handler := delivery.WithCORS(inner)
 
 	a.server = &http.Server{
 		Addr:    addr,

@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/magomedcoder/coder-server/internal/config"
 	"strings"
 
+	"github.com/magomedcoder/coder-server/internal/config"
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
 	gendomain "github.com/magomedcoder/gen/pkg/domain"
@@ -17,6 +17,7 @@ type AgentService struct {
 	cfg            config.AgentConfig
 	timeoutSeconds int32
 	tokenBudget    int
+	sessions       *AgentSessionStore
 }
 
 func NewAgentService(llm *LLMRunnerService, cfg *config.Config) *AgentService {
@@ -25,6 +26,7 @@ func NewAgentService(llm *LLMRunnerService, cfg *config.Config) *AgentService {
 		cfg:            cfg.Agent,
 		timeoutSeconds: cfg.ChatTimeoutSeconds(),
 		tokenBudget:    cfg.ContextTokenBudget(),
+		sessions:       NewAgentSessionStore(cfg.Agent.MaxSteps),
 	}
 }
 
@@ -36,33 +38,64 @@ func (s *AgentService) contextTokenBudget() int {
 }
 
 func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (domain.AgentStepResponse, error) {
+	if s == nil {
+		return domain.AgentStepResponse{}, fmt.Errorf("agent service не инициализирован")
+	}
+
+	sessionID := strings.TrimSpace(req.SessionID)
+	if sessionID != "" {
+		if limited, stop := s.sessions.BeginStep(sessionID, req.Goal); stop {
+			return limited, nil
+		}
+	}
+
 	system := agentStepSystemPrompt()
 	user := buildAgentStepUserPrompt(req)
 
 	messages := mapper.RunnerMessages(system, []domain.ChatMessage{
-		{
-			Role:    "user",
-			Content: user,
-		},
+		{Role: "user", Content: user},
 	}, nil, nil, s.contextTokenBudget())
 
 	genParams := s.agentGenerationParams()
 
-	raw, err := s.llm.CollectMessage(ctx, messages, nil, s.timeoutSeconds, genParams)
+	result, err := s.llm.CollectMessage(ctx, messages, nil, s.timeoutSeconds, genParams)
 	if err != nil {
 		return domain.AgentStepResponse{}, err
 	}
 
-	parsed, err := parseAgentStepLLMOutput(raw)
+	parsed, err := parseAgentStepLLMOutput(result.Content)
 	if err != nil {
-		return domain.AgentStepResponse{
+		resp := domain.AgentStepResponse{
 			Finish:  true,
-			Summary: strings.TrimSpace(raw),
+			Summary: strings.TrimSpace(result.Content),
 			Calls:   nil,
-		}, nil
+		}
+		if sessionID != "" {
+			s.sessions.Reset(sessionID)
+		}
+		return resp, nil
+	}
+
+	parsed.Calls = filterAgentToolCalls(parsed.Calls)
+	if parsed.Finish && sessionID != "" {
+		s.sessions.Reset(sessionID)
 	}
 
 	return parsed, nil
+}
+
+func filterAgentToolCalls(calls []domain.AgentToolCall) []domain.AgentToolCall {
+	if len(calls) == 0 {
+		return []domain.AgentToolCall{}
+	}
+
+	out := make([]domain.AgentToolCall, 0, len(calls))
+	for _, call := range calls {
+		if IsKnownAgentTool(call.Tool) {
+			out = append(out, call)
+		}
+	}
+	return out
 }
 
 func (s *AgentService) agentGenerationParams() *gendomain.GenerationParams {

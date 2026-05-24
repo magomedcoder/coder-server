@@ -9,27 +9,30 @@ import (
 )
 
 type Handler struct {
-	cfg     *config.Config
-	llm     *service.LLMRunnerService
-	agent   *service.AgentService
-	streams *ActiveStreams
+	cfg           *config.Config
+	llm           *service.LLMRunnerService
+	agent         *service.AgentService
+	activeStreams *ActiveStreams
 }
 
 func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, streams *ActiveStreams) *Handler {
-	return &Handler{cfg: cfg, llm: llm, agent: agent, streams: streams}
+	return &Handler{cfg: cfg, llm: llm, agent: agent, activeStreams: streams}
 }
 
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/health", h.handleHealth)
+	mux.HandleFunc("/v1/health/live", h.handleHealthLive)
+	mux.HandleFunc("/v1/health/ready", h.handleHealthReady)
 	mux.HandleFunc("/v1/chat", h.handleChat)
+	mux.HandleFunc("/v1/chat/stream", h.handleChatStream)
 	mux.HandleFunc("/v1/agent/step", h.handleAgentStep)
 }
 
 func (h *Handler) ActiveStreams() int64 {
-	if h == nil || h.streams == nil {
+	if h == nil || h.activeStreams == nil {
 		return 0
 	}
-	return h.streams.Count()
+	return h.activeStreams.Count()
 }
 
 func (h *Handler) ensureRunnerReady(ctx context.Context, w http.ResponseWriter) bool {

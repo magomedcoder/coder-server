@@ -57,7 +57,12 @@ func WithMiddleware(cfg *config.Config, streams *ActiveStreams, next http.Handle
 }
 
 func isPublicPath(path string) bool {
-	return path == "/v1/health"
+	switch path {
+	case "/v1/health", "/v1/health/live", "/v1/health/ready":
+		return true
+	default:
+		return false
+	}
 }
 
 func checkAPIKey(r *http.Request, expected string) bool {
@@ -127,7 +132,7 @@ func ensureRunnerReady(ctx context.Context, llm *service.LLMRunnerService, w htt
 func WithCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Request-ID")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Request-ID, Last-Event-ID")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 
 		if r.Method == http.MethodOptions {

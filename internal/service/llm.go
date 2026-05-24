@@ -12,8 +12,11 @@ import (
 )
 
 type LLMRunnerService struct {
-	pool *llmrunner.Pool
-	reg  *llmrunner.Registry
+	pool    *llmrunner.Pool
+	reg     *llmrunner.Registry
+	breaker *CircuitBreaker
+	retries int
+	streams *StreamRegistry
 }
 
 func NewLLMRunnerService(cfg *config.Config) (*LLMRunnerService, error) {
@@ -24,7 +27,21 @@ func NewLLMRunnerService(cfg *config.Config) (*LLMRunnerService, error) {
 	reg := llmrunner.NewRegistry(cfg.RunnerStates())
 	pool := llmrunner.NewPool(reg)
 
-	return &LLMRunnerService{pool: pool, reg: reg}, nil
+	return &LLMRunnerService{
+		pool:    pool,
+		reg:     reg,
+		breaker: NewCircuitBreaker(cfg.Reliability.CircuitBreakerFailures, cfg.CircuitBreakerCooldown()),
+		retries: cfg.Reliability.RunnerRetries,
+		streams: NewStreamRegistry(cfg.SSEBufferTTL()),
+	}, nil
+}
+
+func (s *LLMRunnerService) StreamRegistry() *StreamRegistry {
+	if s == nil {
+		return nil
+	}
+
+	return s.streams
 }
 
 func (s *LLMRunnerService) Close() error {
@@ -60,6 +77,9 @@ func (s *LLMRunnerService) ModelReady(ctx context.Context) error {
 	}
 
 	for _, addr := range addrs {
+		if s.breaker != nil && !s.breaker.Allow(addr) {
+			continue
+		}
 		if err := s.pool.RequireChatModelLoaded(ctx, addr); err == nil {
 			return nil
 		}
@@ -75,15 +95,18 @@ func (s *LLMRunnerService) ProbeBestRunner(ctx context.Context) (llmrunner.Runne
 
 	addrs := s.reg.GetEnabledAddresses()
 	for _, addr := range addrs {
+		if s.breaker != nil && !s.breaker.Allow(addr) {
+			continue
+		}
 		probe := s.pool.ProbeLLMRunner(ctx, addr)
 		if probe.Connected && probe.LoadedModel != nil && probe.LoadedModel.Loaded {
 			return probe, addr, nil
 		}
 	}
 
-	if len(addrs) > 0 {
-		probe := s.pool.ProbeLLMRunner(ctx, addrs[0])
-		return probe, addrs[0], nil
+	for _, addr := range addrs {
+		probe := s.pool.ProbeLLMRunner(ctx, addr)
+		return probe, addr, nil
 	}
 
 	return llmrunner.RunnerProbeResult{}, "", fmt.Errorf("нет доступных gen-runner")
@@ -107,11 +130,65 @@ func (s *LLMRunnerService) SendMessage(
 		return nil, fmt.Errorf("pool не инициализирован")
 	}
 
-	ch, err := s.pool.SendMessage(ctx, messages, stopSequences, timeoutSeconds, genParams)
-	if err != nil {
-		return nil, mapPoolError(err)
+	addrs := s.eligibleRunners()
+	if len(addrs) == 0 {
+		ch, err := s.pool.SendMessage(ctx, messages, stopSequences, timeoutSeconds, genParams)
+		if err != nil {
+			return nil, mapPoolError(err)
+		}
+		return ch, nil
 	}
-	return ch, nil
+
+	var lastErr error
+	attempts := len(addrs)
+	if s.retries > 0 && s.retries < attempts {
+		attempts = s.retries
+	}
+
+	for i := 0; i < attempts; i++ {
+		addr := addrs[i%len(addrs)]
+		ch, err := s.pool.SendMessageOnRunner(ctx, addr, messages, stopSequences, timeoutSeconds, genParams)
+		if err == nil {
+			if s.breaker != nil {
+				s.breaker.RecordSuccess(addr)
+			}
+			return ch, nil
+		}
+
+		lastErr = err
+		if s.breaker != nil {
+			s.breaker.RecordFailure(addr)
+		}
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+	}
+
+	if lastErr != nil {
+		return nil, mapPoolError(lastErr)
+	}
+	return nil, fmt.Errorf("gen-runner недоступен")
+}
+
+func (s *LLMRunnerService) eligibleRunners() []string {
+	if s == nil || s.reg == nil {
+		return nil
+	}
+
+	all := s.reg.GetEnabledAddresses()
+	out := make([]string, 0, len(all))
+	for _, addr := range all {
+		if s.breaker != nil && !s.breaker.Allow(addr) {
+			continue
+		}
+		out = append(out, addr)
+	}
+	return out
+}
+
+type CollectResult struct {
+	Content string
+	Usage   *gendomain.StreamTokenUsage
 }
 
 func (s *LLMRunnerService) CollectMessage(
@@ -120,20 +197,24 @@ func (s *LLMRunnerService) CollectMessage(
 	stopSequences []string,
 	timeoutSeconds int32,
 	genParams *gendomain.GenerationParams,
-) (string, error) {
+) (CollectResult, error) {
 	ch, err := s.SendMessage(ctx, messages, stopSequences, timeoutSeconds, genParams)
 	if err != nil {
-		return "", err
+		return CollectResult{}, err
 	}
 
 	var full strings.Builder
+	var usage *gendomain.StreamTokenUsage
 	for chunk := range ch {
 		if chunk.Content != "" {
 			full.WriteString(chunk.Content)
 		}
+		if chunk.Usage != nil {
+			usage = chunk.Usage
+		}
 	}
 
-	return full.String(), nil
+	return CollectResult{Content: full.String(), Usage: usage}, nil
 }
 
 func mapPoolError(err error) error {

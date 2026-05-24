@@ -72,3 +72,15 @@ func GenerateParams(in *domain.GenerateParams, defaults config.GenerateConfig) *
 
 	return out
 }
+
+func TokenUsage(u *gendomain.StreamTokenUsage) *domain.TokenUsage {
+	if u == nil {
+		return nil
+	}
+
+	return &domain.TokenUsage{
+		PromptTokens:     u.PromptTokens,
+		CompletionTokens: u.CompletionTokens,
+		TotalTokens:      u.TotalTokens,
+	}
+}

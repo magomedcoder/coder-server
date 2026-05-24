@@ -4,9 +4,22 @@ port: 8000
 runners:
   - addr: "127.0.0.1:50052"
     name: local
+    hints:
+      max_context_tokens: 8192
 
 context:
   token_budget: 8192
+
+reliability:
+  runner_retries: 2
+  circuit_breaker_failures: 3
+  circuit_breaker_cooldown_seconds: 30
+
+rate_limit:
+  requests_per_minute: 120
+
+sse:
+  buffer_ttl_seconds: 300
 
 chat:
   timeout_seconds: 300
@@ -17,3 +30,4 @@ chat:
 agent:
   max_tokens: 2048
   temperature: 0.1
+  max_steps: 30

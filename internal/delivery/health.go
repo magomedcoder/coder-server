@@ -11,9 +11,27 @@ func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
 		writeMethodNotAllowed(w, "GET")
 		return
 	}
+	h.writeHealthResponse(w, r, true)
+}
 
+func (h *Handler) handleHealthLive(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (h *Handler) handleHealthReady(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w, "GET")
+		return
+	}
+	h.writeHealthResponse(w, r, false)
+}
+
+func (h *Handler) writeHealthResponse(w http.ResponseWriter, r *http.Request, includeCapabilities bool) {
 	resp := domain.HealthResponse{OK: false}
-
 	ok, err := h.llm.CheckConnection(r.Context())
 	resp.Runner = &domain.HealthRunnerInfo{Connected: ok && err == nil}
 
@@ -33,19 +51,20 @@ func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	hints := h.llm.ChatHints()
-	caps := &domain.ModelCapabilities{JSONMode: true}
-	if hints.MaxContextTokens > 0 {
-		caps.MaxContextTokens = hints.MaxContextTokens
-	} else if budget := h.cfg.ContextTokenBudget(); budget > 0 {
-		caps.MaxContextTokens = budget
+	if includeCapabilities {
+		hints := h.llm.ChatHints()
+		caps := &domain.ModelCapabilities{JSONMode: true}
+		if hints.MaxContextTokens > 0 {
+			caps.MaxContextTokens = hints.MaxContextTokens
+		} else if budget := h.cfg.ContextTokenBudget(); budget > 0 {
+			caps.MaxContextTokens = budget
+		}
+		resp.Capabilities = caps
 	}
-	resp.Capabilities = caps
 
 	status := http.StatusOK
 	if !resp.OK {
 		status = http.StatusServiceUnavailable
 	}
-
 	writeJSON(w, status, resp)
 }
