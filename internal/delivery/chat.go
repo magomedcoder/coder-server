@@ -36,6 +36,13 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	estimate := estimateChatTokens(req)
+	if !h.checkTokenQuota(estimate) {
+		h.recordChatErr()
+		writeJSON(w, http.StatusTooManyRequests, domain.NewErrorResponse("quota_exceeded", "превышен дневной лимит токенов"))
+		return
+	}
+
 	messages := mapper.RunnerMessages(*req.System, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget(), h.cfg.ContextScanSecrets())
 	genParams := mapper.GenerateParams(req.Generate, h.cfg.Chat.Generate)
 	ch, err := h.llm.SendMessage(r.Context(), messages, nil, h.cfg.ChatTimeoutSeconds(), genParams)
@@ -51,7 +58,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 			session = reg.Start(requestID)
 		}
 		h.recordChatOK()
-		writeRunnerSSE(r.Context(), w, ch, h.activeStreams, session, h.metrics)
+		writeRunnerSSE(r.Context(), w, ch, h.activeStreams, session, h.metrics, h.quota)
 		return
 	}
 
@@ -63,9 +70,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 		if chunk.Usage != nil {
 			usage = mapper.TokenUsage(chunk.Usage)
-			if h.metrics != nil {
-				h.metrics.RecordTokens(chunk.Usage.PromptTokens, chunk.Usage.CompletionTokens)
-			}
+			h.recordTokenUsage(chunk.Usage.PromptTokens, chunk.Usage.CompletionTokens)
 		}
 	}
 
@@ -129,3 +134,25 @@ type validationError string
 func (e validationError) Error() string { return string(e) }
 
 func errValidation(msg string) error { return validationError(msg) }
+
+func estimateChatTokens(req domain.ChatRequest) int64 {
+	var n int
+	if req.System != nil {
+		n += len(*req.System)
+	}
+
+	for _, m := range req.Messages {
+		n += len(m.Content)
+	}
+
+	if req.Editor != nil {
+		n += len(req.Editor.Snippet)
+	}
+
+	est := int64(n / 4)
+	if est < 256 {
+		return 256
+	}
+
+	return est
+}

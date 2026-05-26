@@ -8,6 +8,8 @@ import (
 
 var ErrQueueTimeout = errors.New("очередь переполнена: превышено время ожидания слота")
 
+var ErrQuotaExceeded = errors.New("превышен дневной лимит токенов")
+
 type RequestQueue struct {
 	sem     chan struct{}
 	maxWait time.Duration

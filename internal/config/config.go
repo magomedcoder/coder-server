@@ -68,6 +68,14 @@ type LoggingConfig struct {
 	Structured bool `yaml:"structured"`
 }
 
+type QuotasConfig struct {
+	MaxTokensPerDay int64 `yaml:"max_tokens_per_day"`
+}
+
+type IndexConfig struct {
+	MaxChunksPerWorkspace int `yaml:"max_chunks_per_workspace"`
+}
+
 type Config struct {
 	Host        string            `yaml:"host"`
 	Port        int               `yaml:"port"`
@@ -80,6 +88,8 @@ type Config struct {
 	RateLimit   RateLimitConfig   `yaml:"rate_limit"`
 	SSE         SSEConfig         `yaml:"sse"`
 	Logging     LoggingConfig     `yaml:"logging"`
+	Quotas      QuotasConfig      `yaml:"quotas"`
+	Index       IndexConfig       `yaml:"index"`
 
 	listenOverride string
 }
@@ -177,6 +187,10 @@ func (c *Config) applyDefaults() {
 
 	if c.SSE.BufferTTLSeconds <= 0 {
 		c.SSE.BufferTTLSeconds = 300
+	}
+
+	if c.Index.MaxChunksPerWorkspace <= 0 {
+		c.Index.MaxChunksPerWorkspace = 10000
 	}
 
 	c.ensureDefaultRunners()
@@ -311,4 +325,12 @@ func (c *Config) AuthEnabled() bool {
 
 func (c *Config) RateLimitEnabled() bool {
 	return c != nil && c.RateLimit.RequestsPerMinute > 0
+}
+
+func (c *Config) MaxIndexChunks() int {
+	if c == nil || c.Index.MaxChunksPerWorkspace <= 0 {
+		return 10000
+	}
+
+	return c.Index.MaxChunksPerWorkspace
 }

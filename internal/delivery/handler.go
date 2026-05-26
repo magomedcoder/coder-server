@@ -12,12 +12,22 @@ type Handler struct {
 	cfg           *config.Config
 	llm           *service.LLMRunnerService
 	agent         *service.AgentService
+	index         *service.RepoIndex
+	quota         *service.TokenQuota
 	activeStreams *ActiveStreams
 	metrics       *service.Metrics
 }
 
-func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, streams *ActiveStreams, metrics *service.Metrics) *Handler {
-	return &Handler{cfg: cfg, llm: llm, agent: agent, activeStreams: streams, metrics: metrics}
+func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, index *service.RepoIndex, quota *service.TokenQuota, streams *ActiveStreams, metrics *service.Metrics) *Handler {
+	return &Handler{
+		cfg:           cfg,
+		llm:           llm,
+		agent:         agent,
+		index:         index,
+		quota:         quota,
+		activeStreams: streams,
+		metrics:       metrics,
+	}
 }
 
 func (h *Handler) Register(mux *http.ServeMux) {
@@ -25,6 +35,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/health/live", h.handleHealthLive)
 	mux.HandleFunc("/v1/health/ready", h.handleHealthReady)
 	mux.HandleFunc("/v1/metrics", h.handleMetrics)
+	mux.HandleFunc("/v1/models", h.handleModels)
+	mux.HandleFunc("/v1/index/sync", h.handleIndexSync)
+	mux.HandleFunc("/v1/search", h.handleSearch)
 	mux.HandleFunc("/v1/chat", h.handleChat)
 	mux.HandleFunc("/v1/chat/stream", h.handleChatStream)
 	mux.HandleFunc("/v1/agent/step", h.handleAgentStep)
@@ -43,6 +56,25 @@ func (h *Handler) ensureRunnerReady(ctx context.Context, w http.ResponseWriter) 
 
 func (h *Handler) mapRunnerError(w http.ResponseWriter, err error) {
 	mapRunnerError(w, err)
+}
+
+func (h *Handler) checkTokenQuota(estimate int64) bool {
+	if h.quota == nil {
+		return true
+	}
+
+	return h.quota.WouldAllow(estimate)
+}
+
+func (h *Handler) recordTokenUsage(prompt, completion int32) {
+	if h.metrics != nil {
+		h.metrics.RecordTokens(prompt, completion)
+	}
+
+	if h.quota != nil {
+		total := int64(prompt) + int64(completion)
+		h.quota.Record(total)
+	}
 }
 
 func (h *Handler) recordChatOK() {

@@ -15,6 +15,6 @@ func (h *Handler) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snap := h.metrics.Snapshot(h.llm.RequestQueue(), h.ActiveStreams())
+	snap := h.metrics.Snapshot(h.llm.RequestQueue(), h.ActiveStreams(), h.quota)
 	writeJSON(w, http.StatusOK, snap)
 }

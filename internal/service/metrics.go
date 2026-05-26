@@ -31,9 +31,11 @@ type MetricsSnapshot struct {
 	ActiveStreams    int64   `json:"active_streams"`
 	AvgLatencyMs     float64 `json:"avg_latency_ms"`
 	ErrorRate        float64 `json:"error_rate"`
+	QuotaUsedToday   int64   `json:"quota_tokens_used_today,omitempty"`
+	QuotaMaxPerDay   int64   `json:"quota_tokens_max_per_day,omitempty"`
 }
 
-func (m *Metrics) Snapshot(queue *RequestQueue, activeStreams int64) MetricsSnapshot {
+func (m *Metrics) Snapshot(queue *RequestQueue, activeStreams int64, quota *TokenQuota) MetricsSnapshot {
 	if m == nil {
 		return MetricsSnapshot{}
 	}
@@ -59,6 +61,10 @@ func (m *Metrics) Snapshot(queue *RequestQueue, activeStreams int64) MetricsSnap
 	if reqs > 0 {
 		snap.AvgLatencyMs = float64(latency) / float64(reqs)
 		snap.ErrorRate = float64(errs) / float64(reqs)
+	}
+
+	if quota != nil {
+		snap.QuotaUsedToday, snap.QuotaMaxPerDay = quota.Snapshot()
 	}
 
 	return snap

@@ -268,6 +268,22 @@ func (s *LLMRunnerService) CollectMessage(
 	return CollectResult{Content: full.String(), Usage: usage}, nil
 }
 
+func (s *LLMRunnerService) GetModels(ctx context.Context) ([]string, error) {
+	if s == nil || s.pool == nil {
+		return nil, fmt.Errorf("pool не инициализирован")
+	}
+
+	return s.pool.GetModels(ctx)
+}
+
+func (s *LLMRunnerService) Embed(ctx context.Context, text string) ([]float32, error) {
+	if s == nil || s.pool == nil {
+		return nil, fmt.Errorf("pool не инициализирован")
+	}
+
+	return s.pool.Embed(ctx, text)
+}
+
 func mapPoolError(err error) error {
 	if err == nil {
 		return nil

@@ -37,11 +37,13 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	agent := service.NewAgentService(llm, cfg)
+	index := service.NewRepoIndex()
+	quota := service.NewTokenQuota(cfg.Quotas.MaxTokensPerDay)
 
 	return &App{
 		cfg:     cfg,
 		llm:     llm,
-		handler: delivery.NewHandler(cfg, llm, agent, streams, metrics),
+		handler: delivery.NewHandler(cfg, llm, agent, index, quota, streams, metrics),
 		streams: streams,
 		metrics: metrics,
 	}, nil

@@ -68,7 +68,7 @@ func SummarizeFailure(o domain.AgentStepObservation) string {
 	}
 
 	if stderr, ok := o.Result["stderr"].(string); ok && stderr != "" {
-		if line := extractTracebackLine(stderr); line != "" {
+		if line := ParseTraceback(stderr); line != "" {
 			return line
 		}
 		return truncate(strings.TrimSpace(stderr), 300)

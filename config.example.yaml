@@ -40,3 +40,8 @@ agent:
   # allowed_paths: ["src/", "tests/"]
   blocked_commands: ["rm -rf /", "mkfs.", ":(){ :|:& };:", "curl | sh", "wget | sh", "curl | bash", "wget | bash", "sudo ", "chmod 777 /", "dd if="]
 
+# quotas:
+#   max_tokens_per_day: 500000
+
+index:
+  max_chunks_per_workspace: 10000
