@@ -21,9 +21,9 @@ type HistoryCapper interface {
 }
 
 type Config struct {
-	SessionID  int64
-	RunnerAddr string
-	Model      string
+	SessionID     int64
+	RunnerAddr    string
+	SelectedModel string
 
 	LLM            domain.LLMRepository
 	InitialHistory []*domain.Message

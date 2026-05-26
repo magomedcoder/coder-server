@@ -127,7 +127,7 @@ func TestSendMessage_bufconn_visionRequestAndStream(t *testing.T) {
 		},
 	}
 
-	ch, err := runner.SendMessage(ctx, "m", domainMsgs, nil, 30, nil)
+	ch, err := runner.SendMessage(ctx, domainMsgs, nil, 30, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

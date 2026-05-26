@@ -162,7 +162,6 @@ type LLMRepository interface {
 
 	SendMessage(
 		ctx context.Context,
-		model string,
 		messages []*Message,
 		stopSequences []string,
 		timeoutSeconds int32,
@@ -172,7 +171,6 @@ type LLMRepository interface {
 	SendMessageOnRunner(
 		ctx context.Context,
 		runnerListenAddr string,
-		model string,
 		messages []*Message,
 		stopSequences []string,
 		timeoutSeconds int32,

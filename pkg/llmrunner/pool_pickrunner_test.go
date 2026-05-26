@@ -9,7 +9,7 @@ import (
 
 func TestPickRunner_NoEnabledRunners(t *testing.T) {
 	p := NewPool(NewRegistry(nil))
-	_, _, err := p.pickRunner(context.Background(), "m")
+	_, _, err := p.pickRunner(context.Background())
 
 	if err == nil || !strings.Contains(err.Error(), "нет включённых") {
 		t.Fatalf("ожидалась ошибка про отсутствие раннеров, получено: %v", err)

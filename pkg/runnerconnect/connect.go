@@ -78,12 +78,11 @@ func MustConnect(ctx context.Context, cfg Config) *Result {
 	return r
 }
 
-func FromAddresses(ctx context.Context, addresses []string, defaultModel string, probe bool) (*Result, error) {
+func FromAddresses(ctx context.Context, addresses []string, probe bool) (*Result, error) {
 	eps := make([]Endpoint, 0, len(addresses))
 	for _, a := range addresses {
 		eps = append(eps, Endpoint{
-			Address:       a,
-			SelectedModel: defaultModel,
+			Address: a,
 		})
 	}
 

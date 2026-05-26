@@ -57,10 +57,6 @@ func (cfg Config) validate() error {
 		return fmt.Errorf("agent: RunnerAddr пуст")
 	}
 
-	if strings.TrimSpace(cfg.Model) == "" {
-		return fmt.Errorf("agent: Model пуст")
-	}
-
 	return nil
 }
 
@@ -110,11 +106,11 @@ func runLoop(ctx context.Context, cfg Config, maxRounds int, out chan<- chatstre
 	history := append([]*domain.Message(nil), cfg.InitialHistory...)
 	userTurnVision := mcpvision.LastUserMessageHasVisionAttachment(cfg.InitialHistory)
 
-	logger.I("agent: session_id=%d phase=enter runner=%q model=%q history_msgs=%d tools=%d max_rounds=%d", cfg.SessionID, cfg.RunnerAddr, cfg.Model, len(history), len(gp.Tools), maxRounds)
+	logger.I("agent: session_id=%d phase=enter runner=%q history_msgs=%d tools=%d max_rounds=%d", cfg.SessionID, cfg.RunnerAddr, len(history), len(gp.Tools), maxRounds)
 
 	for round := range maxRounds {
 		logger.I("agent: session_id=%d round=%d/%d phase=llm_request", cfg.SessionID, round+1, maxRounds)
-		ch, err := cfg.LLM.SendMessageOnRunner(ctx, cfg.RunnerAddr, cfg.Model, history, cfg.StopSequences, cfg.TimeoutSeconds, toolloop.RunnerInferenceParams(gp, history))
+		ch, err := cfg.LLM.SendMessageOnRunner(ctx, cfg.RunnerAddr, history, cfg.StopSequences, cfg.TimeoutSeconds, toolloop.RunnerInferenceParams(gp, history))
 		if err != nil {
 			sendErr(err)
 			return
@@ -286,7 +282,7 @@ func runToolRound(
 			defer cancelTool()
 			env := &toolloop.LoopEnv{
 				RunnerAddr:             cfg.RunnerAddr,
-				ResolvedModel:          cfg.Model,
+				ResolvedModel:          cfg.SelectedModel,
 				SamplingModel:          cfg.SamplingModel,
 				StopSequences:          cfg.StopSequences,
 				TimeoutSeconds:         cfg.TimeoutSeconds,

@@ -47,11 +47,11 @@ func (s *scriptedLLM) EmbedBatch(context.Context, []string) ([][]float32, error)
 	return nil, fmt.Errorf("н/д")
 }
 
-func (s *scriptedLLM) SendMessage(context.Context, string, []*domain.Message, []string, int32, *domain.GenerationParams) (chan domain.LLMStreamChunk, error) {
+func (s *scriptedLLM) SendMessage(context.Context, []*domain.Message, []string, int32, *domain.GenerationParams) (chan domain.LLMStreamChunk, error) {
 	return nil, fmt.Errorf("н/д")
 }
 
-func (s *scriptedLLM) SendMessageOnRunner(_ context.Context, _ string, _ string, _ []*domain.Message, _ []string, _ int32, _ *domain.GenerationParams) (chan domain.LLMStreamChunk, error) {
+func (s *scriptedLLM) SendMessageOnRunner(_ context.Context, _ string, _ []*domain.Message, _ []string, _ int32, _ *domain.GenerationParams) (chan domain.LLMStreamChunk, error) {
 	s.n++
 	if s.n > len(s.rounds) {
 		return nil, fmt.Errorf("исчерпано")
@@ -82,7 +82,6 @@ func TestRun_finalAnswerNoTools(t *testing.T) {
 	ch, err := Run(context.Background(), Config{
 		SessionID:      1,
 		RunnerAddr:     "127.0.0.1:1",
-		Model:          "m",
 		LLM:            llm,
 		InitialHistory: []*domain.Message{domain.NewMessage(1, "hi", domain.MessageRoleUser)},
 		GenParams: &domain.GenerationParams{
@@ -125,7 +124,6 @@ func TestRun_toolRoundThenAnswer(t *testing.T) {
 	ch, err := Run(context.Background(), Config{
 		SessionID:      2,
 		RunnerAddr:     "127.0.0.1:1",
-		Model:          "m",
 		LLM:            llm,
 		InitialHistory: []*domain.Message{domain.NewMessage(2, "edit", domain.MessageRoleUser)},
 		GenParams: &domain.GenerationParams{

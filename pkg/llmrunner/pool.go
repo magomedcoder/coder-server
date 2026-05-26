@@ -156,7 +156,7 @@ func runnerProbeModelLoaded(pr *llmrunnerpb.RunnerProbeResponse) bool {
 	return lm != nil && lm.GetLoaded()
 }
 
-func (p *Pool) candidateFromRunnerProbe(addr string, c *LLMRunnerService, pr *llmrunnerpb.RunnerProbeResponse, catalogModels []string, model string, modelMatters bool) *candidate {
+func (p *Pool) candidateFromRunnerProbe(addr string, c *LLMRunnerService, pr *llmrunnerpb.RunnerProbeResponse, catalogModels []string) *candidate {
 	if pr == nil || !pr.GetBackendConnected() {
 		p.recordProbeFailure(addr)
 		return nil
@@ -170,18 +170,13 @@ func (p *Pool) candidateFromRunnerProbe(addr string, c *LLMRunnerService, pr *ll
 		return nil
 	}
 
-	if modelMatters && !modelAllowed(model, models) {
-		p.recordProbeSuccess(addr, models, gpuU)
-		return nil
-	}
-
 	p.recordProbeSuccess(addr, models, gpuU)
 	inf := p.getOrCreateInflight(addr).Load()
 	score := float64(inf)*100 + float64(gpuU)
 	return &candidate{addr: addr, client: c, score: score}
 }
 
-func (p *Pool) probeRunnerAddress(ctx context.Context, addr, model string, modelMatters bool) *candidate {
+func (p *Pool) probeRunnerAddress(ctx context.Context, addr string) *candidate {
 	c, err := p.getClient(addr)
 	if err != nil {
 		return nil
@@ -193,24 +188,9 @@ func (p *Pool) probeRunnerAddress(ctx context.Context, addr, model string, model
 		return nil
 	}
 
-	var catalogModels []string
-	if modelMatters {
-		catalogModels, _ = c.GetModels(ctx)
-	}
+	catalogModels, _ := c.GetModels(ctx)
 
-	return p.candidateFromRunnerProbe(addr, c, pr, catalogModels, model, modelMatters)
-}
-
-func modelAllowed(requested string, serverModels []string) bool {
-	if requested == "" || requested == "default" {
-		return true
-	}
-
-	if len(serverModels) == 0 {
-		return true
-	}
-
-	return slices.Contains(serverModels, requested)
+	return p.candidateFromRunnerProbe(addr, c, pr, catalogModels)
 }
 
 func maxGPUUtil(gpus []*llmrunnerpb.GpuInfo) uint32 {
@@ -414,7 +394,7 @@ type candidate struct {
 	score  float64
 }
 
-func (p *Pool) pickRunner(ctx context.Context, model string) (*LLMRunnerService, string, error) {
+func (p *Pool) pickRunner(ctx context.Context) (*LLMRunnerService, string, error) {
 	addrs := p.reg.GetEnabledAddresses()
 	if len(addrs) == 0 {
 		return nil, "", fmt.Errorf("нет включённых gen-runner в реестре")
@@ -433,10 +413,6 @@ func (p *Pool) pickRunner(ctx context.Context, model string) (*LLMRunnerService,
 		p.probeMu.Unlock()
 
 		if e.ok && now.Sub(e.probedAt) < runnerProbeTTL {
-			if !modelAllowed(model, e.models) {
-				continue
-			}
-
 			c, err := p.getClient(addr)
 			if err != nil {
 				continue
@@ -467,7 +443,7 @@ func (p *Pool) pickRunner(ctx context.Context, model string) (*LLMRunnerService,
 			wg.Add(1)
 			go func(addr string) {
 				defer wg.Done()
-				if c := p.probeRunnerAddress(probeCtx, addr, model, true); c != nil {
+				if c := p.probeRunnerAddress(probeCtx, addr); c != nil {
 					mu.Lock()
 					probed = append(probed, *c)
 					mu.Unlock()
@@ -488,11 +464,26 @@ func (p *Pool) pickRunner(ctx context.Context, model string) (*LLMRunnerService,
 			wg.Add(1)
 			go func(addr string) {
 				defer wg.Done()
-				if c := p.probeRunnerAddress(probeCtx, addr, model, false); c != nil {
-					fbMu.Lock()
-					fallback = append(fallback, *c)
-					fbMu.Unlock()
+				c, err := p.getClient(addr)
+				if err != nil {
+					return
 				}
+				pr, err := c.RunnerProbe(probeCtx)
+				if err != nil || pr == nil || !pr.GetBackendConnected() {
+					return
+				}
+				if !runnerProbeModelLoaded(pr) {
+					return
+				}
+				gpuU := maxGPUUtil(pr.GetGpus())
+				inf := p.getOrCreateInflight(addr).Load()
+				fbMu.Lock()
+				fallback = append(fallback, candidate{
+					addr:   addr,
+					client: c,
+					score:  float64(inf)*100 + float64(gpuU),
+				})
+				fbMu.Unlock()
 			}(addr)
 		}
 		wg.Wait()
@@ -513,7 +504,7 @@ func (p *Pool) pickRunner(ctx context.Context, model string) (*LLMRunnerService,
 		}
 	}
 
-	logger.V("Pool: выбран раннер %s score=%.1f model=%q", best.addr, best.score, model)
+	logger.V("Pool: выбран раннер %s score=%.1f", best.addr, best.score)
 
 	return best.client, best.addr, nil
 }
@@ -620,20 +611,19 @@ func (p *Pool) GetModels(ctx context.Context) ([]string, error) {
 
 func (p *Pool) SendMessage(
 	ctx context.Context,
-	model string,
 	messages []*domain.Message,
 	stopSequences []string,
 	timeoutSeconds int32,
 	genParams *domain.GenerationParams,
 ) (chan domain.LLMStreamChunk, error) {
-	client, addr, err := p.pickRunner(ctx, model)
+	client, addr, err := p.pickRunner(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	ai := p.getOrCreateInflight(addr)
 	ai.Add(1)
-	ch, err := client.SendMessage(ctx, model, messages, stopSequences, timeoutSeconds, genParams)
+	ch, err := client.SendMessage(ctx, messages, stopSequences, timeoutSeconds, genParams)
 	if err != nil {
 		ai.Add(-1)
 		return nil, err
@@ -687,7 +677,6 @@ func (p *Pool) RequireChatModelLoaded(ctx context.Context, runnerAddr string) er
 func (p *Pool) SendMessageOnRunner(
 	ctx context.Context,
 	runnerAddr string,
-	model string,
 	messages []*domain.Message,
 	stopSequences []string,
 	timeoutSeconds int32,
@@ -709,7 +698,7 @@ func (p *Pool) SendMessageOnRunner(
 
 	ai := p.getOrCreateInflight(runnerAddr)
 	ai.Add(1)
-	ch, err := client.SendMessage(ctx, model, messages, stopSequences, timeoutSeconds, genParams)
+	ch, err := client.SendMessage(ctx, messages, stopSequences, timeoutSeconds, genParams)
 	if err != nil {
 		ai.Add(-1)
 		return nil, err
@@ -719,7 +708,7 @@ func (p *Pool) SendMessageOnRunner(
 }
 
 func (p *Pool) Embed(ctx context.Context, text string) ([]float32, error) {
-	client, addr, err := p.pickRunner(ctx, "")
+	client, addr, err := p.pickRunner(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -736,7 +725,7 @@ func (p *Pool) Embed(ctx context.Context, text string) ([]float32, error) {
 }
 
 func (p *Pool) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
-	client, addr, err := p.pickRunner(ctx, "")
+	client, addr, err := p.pickRunner(ctx)
 	if err != nil {
 		return nil, err
 	}
