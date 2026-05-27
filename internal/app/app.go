@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/magomedcoder/coder-server/internal/config"
+	"github.com/magomedcoder/coder-server/internal/contextbuilder"
 	"github.com/magomedcoder/coder-server/internal/delivery"
 	"github.com/magomedcoder/coder-server/internal/service"
 )
@@ -39,11 +40,13 @@ func New(cfg *config.Config) (*App, error) {
 	agent := service.NewAgentService(llm, cfg)
 	index := service.NewRepoIndex()
 	quota := service.NewTokenQuota(cfg.Quotas.MaxTokensPerDay)
+	idempotency := service.NewIdempotencyStore(cfg.IdempotencyTTL())
+	prefixCache := contextbuilder.NewPrefixCache(cfg.PromptCacheEntries())
 
 	return &App{
 		cfg:     cfg,
 		llm:     llm,
-		handler: delivery.NewHandler(cfg, llm, agent, index, quota, streams, metrics),
+		handler: delivery.NewHandler(cfg, llm, agent, index, quota, idempotency, prefixCache, streams, metrics),
 		streams: streams,
 		metrics: metrics,
 	}, nil

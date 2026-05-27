@@ -15,6 +15,7 @@ import (
 type indexedChunk struct {
 	chunk domain.IndexChunk
 	terms map[string]int
+	embed []float32
 }
 
 type RepoIndex struct {
@@ -57,9 +58,14 @@ func (idx *RepoIndex) Sync(req domain.IndexSyncRequest, maxChunks int) (int, err
 		if id == "" || strings.TrimSpace(c.Content) == "" {
 			continue
 		}
+		var embed []float32
+		if prev, ok := bucket[id]; ok && prev.chunk.Content == c.Content {
+			embed = prev.embed
+		}
 		bucket[id] = &indexedChunk{
 			chunk: c,
 			terms: tokenize(c.Content),
+			embed: embed,
 		}
 	}
 
@@ -175,7 +181,7 @@ func (idx *RepoIndex) searchSemantic(ctx context.Context, llm *LLMRunnerService,
 	var list []scored
 
 	for _, ch := range chunks {
-		emb, err := llm.Embed(ctx, ch.chunk.Content)
+		emb, err := ch.embedding(ctx, llm)
 		if err != nil || len(emb) == 0 {
 			continue
 		}
@@ -201,6 +207,29 @@ func (idx *RepoIndex) searchSemantic(ctx context.Context, llm *LLMRunnerService,
 	}
 
 	return out
+}
+
+func (ch *indexedChunk) embedding(ctx context.Context, llm *LLMRunnerService) ([]float32, error) {
+	if ch == nil {
+		return nil, fmt.Errorf("chunk is nil")
+	}
+
+	if len(ch.embed) > 0 {
+		return ch.embed, nil
+	}
+
+	if llm == nil {
+		return nil, fmt.Errorf("llm is nil")
+	}
+
+	emb, err := llm.Embed(ctx, ch.chunk.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	ch.embed = emb
+
+	return emb, nil
 }
 
 func hitFromChunk(ch *indexedChunk, score float64) domain.SearchHit {

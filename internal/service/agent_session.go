@@ -1,14 +1,17 @@
 package service
 
 import (
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/magomedcoder/coder-server/internal/domain"
 )
 
 type AgentSession struct {
-	StepCount int
-	Goal      string
+	StepCount   int
+	Goal        string
+	LastSummary string
 }
 
 type AgentSessionStore struct {
@@ -67,4 +70,47 @@ func (st *AgentSessionStore) Reset(sessionID string) {
 	st.mu.Lock()
 	delete(st.sessions, sessionID)
 	st.mu.Unlock()
+}
+
+func (st *AgentSessionStore) SetSummary(sessionID, summary string) {
+	if st == nil || sessionID == "" {
+		return
+	}
+
+	summary = strings.TrimSpace(summary)
+	if summary == "" {
+		return
+	}
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	s, ok := st.sessions[sessionID]
+	if !ok {
+		return
+	}
+
+	s.LastSummary = summary
+}
+
+func (st *AgentSessionStore) ContextHint(sessionID string) string {
+	if st == nil || sessionID == "" {
+		return ""
+	}
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	s, ok := st.sessions[sessionID]
+	if !ok {
+		return ""
+	}
+
+	if s.LastSummary != "" {
+		return fmt.Sprintf("step %d/%d, last summary: %s", s.StepCount, st.maxSteps, s.LastSummary)
+	}
+
+	if s.Goal != "" {
+		return fmt.Sprintf("step %d/%d, goal: %s", s.StepCount, st.maxSteps, s.Goal)
+	}
+
+	return fmt.Sprintf("step %d/%d", s.StepCount, st.maxSteps)
 }

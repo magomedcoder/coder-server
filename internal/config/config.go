@@ -76,6 +76,18 @@ type IndexConfig struct {
 	MaxChunksPerWorkspace int `yaml:"max_chunks_per_workspace"`
 }
 
+type IdempotencyConfig struct {
+	TTLSeconds int `yaml:"ttl_seconds"`
+}
+
+type SecurityConfig struct {
+	ModerationEnabled *bool `yaml:"moderation_enabled"`
+}
+
+type CacheConfig struct {
+	PromptPrefixEntries int `yaml:"prompt_prefix_entries"`
+}
+
 type Config struct {
 	Host        string            `yaml:"host"`
 	Port        int               `yaml:"port"`
@@ -90,6 +102,9 @@ type Config struct {
 	Logging     LoggingConfig     `yaml:"logging"`
 	Quotas      QuotasConfig      `yaml:"quotas"`
 	Index       IndexConfig       `yaml:"index"`
+	Idempotency IdempotencyConfig `yaml:"idempotency"`
+	Security    SecurityConfig    `yaml:"security"`
+	Cache       CacheConfig       `yaml:"cache"`
 
 	listenOverride string
 }
@@ -191,6 +206,19 @@ func (c *Config) applyDefaults() {
 
 	if c.Index.MaxChunksPerWorkspace <= 0 {
 		c.Index.MaxChunksPerWorkspace = 10000
+	}
+
+	if c.Idempotency.TTLSeconds <= 0 {
+		c.Idempotency.TTLSeconds = 300
+	}
+
+	if c.Security.ModerationEnabled == nil {
+		v := true
+		c.Security.ModerationEnabled = &v
+	}
+
+	if c.Cache.PromptPrefixEntries <= 0 {
+		c.Cache.PromptPrefixEntries = 256
 	}
 
 	c.ensureDefaultRunners()
@@ -333,4 +361,28 @@ func (c *Config) MaxIndexChunks() int {
 	}
 
 	return c.Index.MaxChunksPerWorkspace
+}
+
+func (c *Config) IdempotencyTTL() time.Duration {
+	if c == nil || c.Idempotency.TTLSeconds <= 0 {
+		return 5 * time.Minute
+	}
+
+	return time.Duration(c.Idempotency.TTLSeconds) * time.Second
+}
+
+func (c *Config) ModerationEnabled() bool {
+	if c == nil || c.Security.ModerationEnabled == nil {
+		return true
+	}
+
+	return *c.Security.ModerationEnabled
+}
+
+func (c *Config) PromptCacheEntries() int {
+	if c == nil || c.Cache.PromptPrefixEntries <= 0 {
+		return 256
+	}
+
+	return c.Cache.PromptPrefixEntries
 }

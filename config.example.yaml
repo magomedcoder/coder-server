@@ -45,3 +45,12 @@ agent:
 
 index:
   max_chunks_per_workspace: 10000
+
+idempotency:
+  ttl_seconds: 300
+
+security:
+  moderation_enabled: true
+
+cache:
+  prompt_prefix_entries: 256

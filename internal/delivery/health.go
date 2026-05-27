@@ -31,7 +31,9 @@ func (h *Handler) handleHealthReady(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) writeHealthResponse(w http.ResponseWriter, r *http.Request, includeCapabilities bool) {
-	resp := domain.HealthResponse{OK: false}
+	resp := domain.HealthResponse{
+		OK: false,
+	}
 	ok, err := h.llm.CheckConnection(r.Context())
 	resp.Runner = &domain.HealthRunnerInfo{Connected: ok && err == nil}
 
@@ -53,11 +55,17 @@ func (h *Handler) writeHealthResponse(w http.ResponseWriter, r *http.Request, in
 
 	if includeCapabilities {
 		hints := h.llm.ChatHints()
-		caps := &domain.ModelCapabilities{JSONMode: true}
+		caps := &domain.ModelCapabilities{
+			JSONMode: true,
+			Tools:    true,
+		}
 		if hints.MaxContextTokens > 0 {
 			caps.MaxContextTokens = hints.MaxContextTokens
 		} else if budget := h.cfg.ContextTokenBudget(); budget > 0 {
 			caps.MaxContextTokens = budget
+		}
+		if _, err := h.llm.Embed(r.Context(), "ping"); err == nil {
+			caps.Embeddings = true
 		}
 		resp.Capabilities = caps
 	}

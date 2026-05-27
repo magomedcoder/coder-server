@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/magomedcoder/coder-server/internal/config"
+	"github.com/magomedcoder/coder-server/internal/contextbuilder"
 	"github.com/magomedcoder/coder-server/internal/service"
 )
 
@@ -14,17 +15,21 @@ type Handler struct {
 	agent         *service.AgentService
 	index         *service.RepoIndex
 	quota         *service.TokenQuota
+	idempotency   *service.IdempotencyStore
+	prefixCache   *contextbuilder.PrefixCache
 	activeStreams *ActiveStreams
 	metrics       *service.Metrics
 }
 
-func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, index *service.RepoIndex, quota *service.TokenQuota, streams *ActiveStreams, metrics *service.Metrics) *Handler {
+func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, index *service.RepoIndex, quota *service.TokenQuota, idempotency *service.IdempotencyStore, prefixCache *contextbuilder.PrefixCache, streams *ActiveStreams, metrics *service.Metrics) *Handler {
 	return &Handler{
 		cfg:           cfg,
 		llm:           llm,
 		agent:         agent,
 		index:         index,
 		quota:         quota,
+		idempotency:   idempotency,
+		prefixCache:   prefixCache,
 		activeStreams: streams,
 		metrics:       metrics,
 	}

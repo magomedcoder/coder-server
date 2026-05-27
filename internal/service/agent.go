@@ -51,11 +51,11 @@ func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (d
 	}
 
 	system := agentStepSystemPrompt()
-	user := buildAgentStepUserPrompt(req)
+	user := s.buildAgentStepUserPrompt(req)
 
 	messages := mapper.RunnerMessages(system, []domain.ChatMessage{
 		{Role: "user", Content: user},
-	}, nil, nil, s.tokenBudget, s.scanSecrets)
+	}, nil, nil, s.tokenBudget, s.scanSecrets, nil)
 
 	result, err := s.llm.CollectMessage(ctx, messages, nil, s.timeoutSeconds, s.agentGenerationParams())
 	if err != nil {
@@ -81,6 +81,10 @@ func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (d
 	parsed.Calls = filtered
 	parsed.Blocked = blocked
 	parsed.Step = step
+
+	if sessionID != "" && strings.TrimSpace(parsed.Summary) != "" {
+		s.sessions.SetSummary(sessionID, parsed.Summary)
+	}
 
 	if parsed.Finish && sessionID != "" {
 		s.sessions.Reset(sessionID)
@@ -127,7 +131,7 @@ func agentStepSystemPrompt() string {
 	return agentStepSystemPromptText
 }
 
-func buildAgentStepUserPrompt(req domain.AgentStepRequest) string {
+func (s *AgentService) buildAgentStepUserPrompt(req domain.AgentStepRequest) string {
 	var b strings.Builder
 	if g := strings.TrimSpace(req.Goal); g != "" {
 		fmt.Fprintf(&b, "Goal: %s\n", g)
@@ -135,6 +139,11 @@ func buildAgentStepUserPrompt(req domain.AgentStepRequest) string {
 
 	if sid := strings.TrimSpace(req.SessionID); sid != "" {
 		fmt.Fprintf(&b, "Session: %s\n", sid)
+		if s != nil && s.sessions != nil {
+			if hint := s.sessions.ContextHint(sid); hint != "" {
+				fmt.Fprintf(&b, "%s\n", hint)
+			}
+		}
 	}
 
 	if len(req.Context) > 0 {

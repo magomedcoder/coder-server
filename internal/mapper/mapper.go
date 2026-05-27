@@ -17,6 +17,7 @@ func RunnerMessages(
 	chatCtx *domain.ChatContext,
 	tokenBudget int,
 	scanSecrets bool,
+	prefixCache *contextbuilder.PrefixCache,
 ) []*gendomain.Message {
 	out := make([]*gendomain.Message, 0, len(input)+3)
 	now := time.Now()
@@ -30,7 +31,22 @@ func RunnerMessages(
 	}
 
 	builder := contextbuilder.New(tokenBudget, scanSecrets)
-	if ctxPrompt := builder.Build(system, editor, chatCtx); ctxPrompt != "" {
+	var ctxPrompt string
+	if prefixCache != nil {
+		key := contextbuilder.PrefixCacheKey(system, editor, chatCtx, tokenBudget, scanSecrets)
+		if cached, ok := prefixCache.Get(key); ok {
+			ctxPrompt = cached
+		} else {
+			ctxPrompt = builder.Build(system, editor, chatCtx)
+			if ctxPrompt != "" {
+				prefixCache.Put(key, ctxPrompt)
+			}
+		}
+	} else {
+		ctxPrompt = builder.Build(system, editor, chatCtx)
+	}
+
+	if ctxPrompt != "" {
 		out = append(out, &gendomain.Message{
 			Content:   ctxPrompt,
 			Role:      gendomain.MessageRoleSystem,

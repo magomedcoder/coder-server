@@ -8,6 +8,7 @@ import (
 
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
+	"github.com/magomedcoder/coder-server/internal/security"
 	"github.com/magomedcoder/coder-server/internal/service"
 )
 
@@ -31,6 +32,33 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.cfg.ModerationEnabled() {
+		texts := make([]string, 0, len(req.Messages)+1)
+		if req.System != nil {
+			texts = append(texts, *req.System)
+		}
+
+		for _, m := range req.Messages {
+			texts = append(texts, m.Content)
+		}
+
+		if security.ScanMessages(texts) {
+			h.recordChatErr()
+			writeJSON(w, http.StatusBadRequest, domain.NewErrorResponse("prompt_injection", "запрос отклонён moderation layer"))
+			return
+		}
+	}
+
+	if !*req.Stream && requestID != "" && h.idempotency != nil {
+		if status, body, ok := h.idempotency.Get("chat:" + requestID); ok {
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.Header().Set("X-Idempotent-Replay", "true")
+			w.WriteHeader(status)
+			_, _ = w.Write(body)
+			return
+		}
+	}
+
 	if !h.ensureRunnerReady(r.Context(), w) {
 		h.recordChatErr()
 		return
@@ -43,7 +71,9 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages := mapper.RunnerMessages(*req.System, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget(), h.cfg.ContextScanSecrets())
+	h.enrichContextFromSearch(r.Context(), &req)
+
+	messages := mapper.RunnerMessages(*req.System, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget(), h.cfg.ContextScanSecrets(), h.prefixCache)
 	genParams := mapper.GenerateParams(req.Generate, h.cfg.Chat.Generate)
 	ch, err := h.llm.SendMessage(r.Context(), messages, nil, h.cfg.ChatTimeoutSeconds(), genParams)
 	if err != nil {
@@ -74,15 +104,23 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.recordChatOK()
-	writeJSON(w, http.StatusOK, domain.ChatResponse{
+	resp := domain.ChatResponse{
 		Message: domain.ChatMessage{
 			Role:    "assistant",
 			Content: full.String(),
 		},
 		Finish: "stop",
 		Usage:  usage,
-	})
+	}
+
+	h.recordChatOK()
+	if requestID != "" && h.idempotency != nil {
+		if body, err := json.Marshal(resp); err == nil {
+			h.idempotency.Put("chat:"+requestID, http.StatusOK, body)
+		}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handler) handleChatStream(w http.ResponseWriter, r *http.Request) {

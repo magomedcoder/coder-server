@@ -12,7 +12,15 @@ type ChatRequest struct {
 	Messages  []ChatMessage   `json:"messages"`
 	Editor    *EditorContext  `json:"editor,omitempty"`
 	Context   *ChatContext    `json:"context,omitempty"`
+	Search    *ChatSearch     `json:"search,omitempty"`
 	Generate  *GenerateParams `json:"generate,omitempty"`
+}
+
+type ChatSearch struct {
+	WorkspaceID string `json:"workspace_id"`
+	Query       string `json:"query,omitempty"`
+	Limit       int    `json:"limit,omitempty"`
+	Mode        string `json:"mode,omitempty"`
 }
 
 type ChatResponse struct {
@@ -64,6 +72,8 @@ type HealthRunnerInfo struct {
 type ModelCapabilities struct {
 	MaxContextTokens int  `json:"max_context_tokens,omitempty"`
 	JSONMode         bool `json:"json_mode"`
+	Embeddings       bool `json:"embeddings,omitempty"`
+	Tools            bool `json:"tools,omitempty"`
 }
 
 type AgentStepObservation struct {
