@@ -72,6 +72,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.enrichContextFromSearch(r.Context(), &req)
+	req.Messages = trimChatHistory(req.Messages, h.cfg.HistoryMaxMessages())
 
 	messages := mapper.RunnerMessages(*req.System, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget(), h.cfg.ContextScanSecrets(), h.prefixCache)
 	genParams := mapper.GenerateParams(req.Generate, h.cfg.Chat.Generate)
@@ -172,6 +173,14 @@ type validationError string
 func (e validationError) Error() string { return string(e) }
 
 func errValidation(msg string) error { return validationError(msg) }
+
+func trimChatHistory(messages []domain.ChatMessage, max int) []domain.ChatMessage {
+	if max <= 0 || len(messages) <= max {
+		return messages
+	}
+
+	return messages[len(messages)-max:]
+}
 
 func estimateChatTokens(req domain.ChatRequest) int64 {
 	var n int

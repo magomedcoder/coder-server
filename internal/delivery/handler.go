@@ -17,11 +17,13 @@ type Handler struct {
 	quota         *service.TokenQuota
 	idempotency   *service.IdempotencyStore
 	prefixCache   *contextbuilder.PrefixCache
+	mcp           *service.MCPRegistry
+	testSuggest   *service.TestSuggestService
 	activeStreams *ActiveStreams
 	metrics       *service.Metrics
 }
 
-func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, index *service.RepoIndex, quota *service.TokenQuota, idempotency *service.IdempotencyStore, prefixCache *contextbuilder.PrefixCache, streams *ActiveStreams, metrics *service.Metrics) *Handler {
+func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, index *service.RepoIndex, quota *service.TokenQuota, idempotency *service.IdempotencyStore, prefixCache *contextbuilder.PrefixCache, mcp *service.MCPRegistry, testSuggest *service.TestSuggestService, streams *ActiveStreams, metrics *service.Metrics) *Handler {
 	return &Handler{
 		cfg:           cfg,
 		llm:           llm,
@@ -30,6 +32,8 @@ func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *servic
 		quota:         quota,
 		idempotency:   idempotency,
 		prefixCache:   prefixCache,
+		mcp:           mcp,
+		testSuggest:   testSuggest,
 		activeStreams: streams,
 		metrics:       metrics,
 	}
@@ -41,11 +45,15 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/health/ready", h.handleHealthReady)
 	mux.HandleFunc("/v1/metrics", h.handleMetrics)
 	mux.HandleFunc("/v1/models", h.handleModels)
+	mux.HandleFunc("/v1/mcp/tools", h.handleMCPTools)
+	mux.HandleFunc("/v1/mcp/call", h.handleMCPCall)
 	mux.HandleFunc("/v1/index/sync", h.handleIndexSync)
+	mux.HandleFunc("/v1/index/graph", h.handleIndexGraph)
 	mux.HandleFunc("/v1/search", h.handleSearch)
 	mux.HandleFunc("/v1/chat", h.handleChat)
 	mux.HandleFunc("/v1/chat/stream", h.handleChatStream)
 	mux.HandleFunc("/v1/agent/step", h.handleAgentStep)
+	mux.HandleFunc("/v1/agent/test-suggest", h.handleTestSuggest)
 }
 
 func (h *Handler) ActiveStreams() int64 {

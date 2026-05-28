@@ -67,6 +67,9 @@ func (h *Handler) writeHealthResponse(w http.ResponseWriter, r *http.Request, in
 		if _, err := h.llm.Embed(r.Context(), "ping"); err == nil {
 			caps.Embeddings = true
 		}
+		if h.mcp != nil && h.mcp.Enabled() {
+			caps.MCPServers = h.mcp.ServerCount()
+		}
 		resp.Capabilities = caps
 	}
 

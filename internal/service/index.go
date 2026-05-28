@@ -19,12 +19,26 @@ type indexedChunk struct {
 }
 
 type RepoIndex struct {
-	mu    sync.RWMutex
-	store map[string]map[string]*indexedChunk
+	mu            sync.RWMutex
+	store         map[string]map[string]*indexedChunk
+	imports       map[string]map[string][]string
+	importedBy    map[string]map[string][]string
+	symbols       map[string]map[string]string
+	searchWorkers int
 }
 
-func NewRepoIndex() *RepoIndex {
-	return &RepoIndex{store: make(map[string]map[string]*indexedChunk)}
+func NewRepoIndex(searchWorkers int) *RepoIndex {
+	if searchWorkers <= 0 {
+		searchWorkers = 4
+	}
+
+	return &RepoIndex{
+		store:         make(map[string]map[string]*indexedChunk),
+		imports:       make(map[string]map[string][]string),
+		importedBy:    make(map[string]map[string][]string),
+		symbols:       make(map[string]map[string]string),
+		searchWorkers: searchWorkers,
+	}
 }
 
 func (idx *RepoIndex) Sync(req domain.IndexSyncRequest, maxChunks int) (int, error) {
@@ -49,6 +63,9 @@ func (idx *RepoIndex) Sync(req domain.IndexSyncRequest, maxChunks int) (int, err
 	for _, id := range req.Delete {
 		id = strings.TrimSpace(id)
 		if id != "" {
+			if ch, ok := bucket[id]; ok {
+				idx.removeGraphLocked(ws, ch.chunk)
+			}
 			delete(bucket, id)
 		}
 	}
@@ -67,6 +84,7 @@ func (idx *RepoIndex) Sync(req domain.IndexSyncRequest, maxChunks int) (int, err
 			terms: tokenize(c.Content),
 			embed: embed,
 		}
+		idx.updateGraphLocked(ws, c)
 	}
 
 	if maxChunks > 0 && len(bucket) > maxChunks {
@@ -125,6 +143,8 @@ func (idx *RepoIndex) Search(ctx context.Context, llm *LLMRunnerService, req dom
 		}
 	}
 
+	hits = idx.expandHitsWithGraph(ws, hits, limit)
+
 	return domain.SearchResponse{
 		Hits: hits,
 		Mode: mode,
@@ -174,24 +194,48 @@ func (idx *RepoIndex) searchSemantic(ctx context.Context, llm *LLMRunnerService,
 		return nil
 	}
 
+	workers := idx.searchWorkers
+	if workers <= 0 {
+		workers = 4
+	}
+
 	type scored struct {
 		chunk *indexedChunk
 		score float64
 	}
-	var list []scored
+
+	results := make(chan scored, len(chunks))
+	sem := make(chan struct{}, workers)
+	var wg sync.WaitGroup
 
 	for _, ch := range chunks {
-		emb, err := ch.embedding(ctx, llm)
-		if err != nil || len(emb) == 0 {
-			continue
-		}
+		wg.Add(1)
+		go func(ch *indexedChunk) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
-		sim := cosineSimilarity(qEmb, emb)
-		if sim <= 0.1 {
-			continue
-		}
+			emb, err := ch.embedding(ctx, llm)
+			if err != nil || len(emb) == 0 {
+				return
+			}
 
-		list = append(list, scored{chunk: ch, score: sim})
+			sim := cosineSimilarity(qEmb, emb)
+			if sim <= 0.1 {
+				return
+			}
+			results <- scored{chunk: ch, score: sim}
+		}(ch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var list []scored
+	for s := range results {
+		list = append(list, s)
 	}
 
 	sort.Slice(list, func(i, j int) bool {
@@ -230,6 +274,157 @@ func (ch *indexedChunk) embedding(ctx context.Context, llm *LLMRunnerService) ([
 	ch.embed = emb
 
 	return emb, nil
+}
+
+func (idx *RepoIndex) updateGraphLocked(ws string, c domain.IndexChunk) {
+	path := strings.TrimSpace(c.Path)
+	if path == "" {
+		return
+	}
+
+	if _, ok := idx.imports[ws]; !ok {
+		idx.imports[ws] = make(map[string][]string)
+		idx.importedBy[ws] = make(map[string][]string)
+		idx.symbols[ws] = make(map[string]string)
+	}
+
+	idx.imports[ws][path] = append([]string(nil), c.Imports...)
+	for _, imp := range c.Imports {
+		imp = strings.TrimSpace(imp)
+		if imp == "" {
+			continue
+		}
+		idx.importedBy[ws][imp] = appendUnique(idx.importedBy[ws][imp], path)
+	}
+
+	if sym := strings.TrimSpace(c.Symbol); sym != "" {
+		idx.symbols[ws][sym] = c.ID
+	}
+}
+
+func (idx *RepoIndex) removeGraphLocked(ws string, c domain.IndexChunk) {
+	path := strings.TrimSpace(c.Path)
+	if path == "" {
+		return
+	}
+
+	if bucket, ok := idx.imports[ws]; ok {
+		delete(bucket, path)
+	}
+
+	for _, imp := range c.Imports {
+		imp = strings.TrimSpace(imp)
+		if imp == "" {
+			continue
+		}
+		if _, ok := idx.importedBy[ws]; ok {
+			idx.importedBy[ws][imp] = removeString(idx.importedBy[ws][imp], path)
+		}
+	}
+
+	if sym := strings.TrimSpace(c.Symbol); sym != "" {
+		if id, ok := idx.symbols[ws][sym]; ok && id == c.ID {
+			delete(idx.symbols[ws], sym)
+		}
+	}
+}
+
+func (idx *RepoIndex) Graph(ws, path, symbol string) domain.IndexGraphResponse {
+	ws = strings.TrimSpace(ws)
+	path = strings.TrimSpace(path)
+	symbol = strings.TrimSpace(symbol)
+	if ws == "" {
+		return domain.IndexGraphResponse{}
+	}
+
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	resp := domain.IndexGraphResponse{Path: path, Symbol: symbol}
+	if path != "" {
+		resp.Imports = append([]string(nil), idx.imports[ws][path]...)
+		resp.ImportedBy = append([]string(nil), idx.importedBy[ws][path]...)
+	}
+
+	if symbol != "" {
+		if id := idx.symbols[ws][symbol]; id != "" {
+			resp.ChunkIDs = []string{id}
+		}
+	}
+
+	return resp
+}
+
+func (idx *RepoIndex) expandHitsWithGraph(ws string, hits []domain.SearchHit, limit int) []domain.SearchHit {
+	if len(hits) == 0 {
+		return hits
+	}
+
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	seen := make(map[string]struct{}, len(hits))
+	for i := range hits {
+		seen[hits[i].ID] = struct{}{}
+		if path := strings.TrimSpace(hits[i].Path); path != "" {
+			hits[i].Related = append([]string(nil), idx.imports[ws][path]...)
+		}
+	}
+
+	for _, h := range hits {
+		for _, rel := range h.Related {
+			rel = strings.TrimSpace(rel)
+			if rel == "" {
+				continue
+			}
+
+			for _, ch := range idx.store[ws] {
+				if strings.TrimSpace(ch.chunk.Path) != rel {
+					continue
+				}
+
+				if _, ok := seen[ch.chunk.ID]; ok {
+					break
+				}
+
+				seen[ch.chunk.ID] = struct{}{}
+				hits = append(hits, hitFromChunk(ch, h.Score*0.6))
+				if len(hits) >= limit*2 {
+					sort.Slice(hits, func(i, j int) bool { return hits[i].Score > hits[j].Score })
+					return hits[:limit]
+				}
+				break
+			}
+		}
+	}
+
+	if len(hits) > limit {
+		sort.Slice(hits, func(i, j int) bool { return hits[i].Score > hits[j].Score })
+		hits = hits[:limit]
+	}
+
+	return hits
+}
+
+func appendUnique(list []string, v string) []string {
+	for _, s := range list {
+		if s == v {
+			return list
+		}
+	}
+
+	return append(list, v)
+}
+
+func removeString(list []string, v string) []string {
+	out := list[:0]
+	for _, s := range list {
+		if s != v {
+			out = append(out, s)
+		}
+	}
+
+	return out
 }
 
 func hitFromChunk(ch *indexedChunk, score float64) domain.SearchHit {

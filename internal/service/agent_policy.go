@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/domain"
+	"github.com/magomedcoder/gen/pkg/mcpclient"
 )
 
 type AgentPolicy struct {
@@ -40,6 +41,9 @@ func (p *AgentPolicy) FilterCalls(calls []domain.AgentToolCall) ([]domain.AgentT
 }
 
 func (p *AgentPolicy) validateCall(call domain.AgentToolCall) string {
+	if _, _, ok := mcpclient.ParseToolAlias(call.Tool); ok {
+		return ""
+	}
 	switch call.Tool {
 	case "run_command":
 		return p.validateCommand(call.Args)

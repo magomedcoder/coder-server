@@ -29,6 +29,7 @@ logging:
 
 chat:
   timeout_seconds: 300
+  history_max_messages: 40
   generate:
     max_tokens: 1024
     temperature: 0.2
@@ -45,6 +46,15 @@ agent:
 
 index:
   max_chunks_per_workspace: 10000
+  search_workers: 4
+
+# mcp:
+#   servers:
+#     - id: 1
+#       name: wiki
+#       transport: streamable
+#       url: "http://127.0.0.1:8090/mcp"
+#       timeout_seconds: 120
 
 idempotency:
   ttl_seconds: 300

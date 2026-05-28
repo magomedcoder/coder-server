@@ -1,5 +1,11 @@
 package service
 
+import (
+	"strings"
+
+	"github.com/magomedcoder/gen/pkg/mcpclient"
+)
+
 var agentToolNames = map[string]struct{}{
 	"list_dir":       {},
 	"read_file":      {},
@@ -10,9 +16,23 @@ var agentToolNames = map[string]struct{}{
 	"run_command":    {},
 }
 
-func IsKnownAgentTool(name string) bool {
-	_, ok := agentToolNames[name]
-	return ok
+func IsKnownAgentTool(name string, mcp *MCPRegistry) bool {
+	name = strings.TrimSpace(name)
+	if _, ok := agentToolNames[name]; ok {
+		return true
+	}
+
+	if _, _, ok := mcpclient.ParseToolAlias(name); ok {
+		if mcp != nil && mcp.serverExistsByAlias(name) {
+			return true
+		}
+	}
+
+	if mcp != nil && mcp.HasTool(name) {
+		return true
+	}
+
+	return false
 }
 
 func KnownAgentTools() []string {

@@ -37,16 +37,18 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("не удалось инициализировать клиент gen-runner: %w", err)
 	}
 
-	agent := service.NewAgentService(llm, cfg)
-	index := service.NewRepoIndex()
+	mcp := service.NewMCPRegistry(cfg.MCP)
+	agent := service.NewAgentService(llm, cfg, mcp)
+	index := service.NewRepoIndex(cfg.SearchWorkers())
 	quota := service.NewTokenQuota(cfg.Quotas.MaxTokensPerDay)
 	idempotency := service.NewIdempotencyStore(cfg.IdempotencyTTL())
 	prefixCache := contextbuilder.NewPrefixCache(cfg.PromptCacheEntries())
+	testSuggest := service.NewTestSuggestService(llm, cfg.ChatTimeoutSeconds())
 
 	return &App{
 		cfg:     cfg,
 		llm:     llm,
-		handler: delivery.NewHandler(cfg, llm, agent, index, quota, idempotency, prefixCache, streams, metrics),
+		handler: delivery.NewHandler(cfg, llm, agent, index, quota, idempotency, prefixCache, mcp, testSuggest, streams, metrics),
 		streams: streams,
 		metrics: metrics,
 	}, nil

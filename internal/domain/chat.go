@@ -74,6 +74,7 @@ type ModelCapabilities struct {
 	JSONMode         bool `json:"json_mode"`
 	Embeddings       bool `json:"embeddings,omitempty"`
 	Tools            bool `json:"tools,omitempty"`
+	MCPServers       int  `json:"mcp_servers,omitempty"`
 }
 
 type AgentStepObservation struct {

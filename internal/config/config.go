@@ -18,8 +18,9 @@ type GenerateConfig struct {
 }
 
 type ChatConfig struct {
-	TimeoutSeconds int            `yaml:"timeout_seconds"`
-	Generate       GenerateConfig `yaml:"generate"`
+	TimeoutSeconds     int            `yaml:"timeout_seconds"`
+	HistoryMaxMessages int            `yaml:"history_max_messages"`
+	Generate           GenerateConfig `yaml:"generate"`
 }
 
 type AgentConfig struct {
@@ -74,6 +75,21 @@ type QuotasConfig struct {
 
 type IndexConfig struct {
 	MaxChunksPerWorkspace int `yaml:"max_chunks_per_workspace"`
+	SearchWorkers         int `yaml:"search_workers"`
+}
+
+type MCPServerConfig struct {
+	ID             int64             `yaml:"id"`
+	Name           string            `yaml:"name"`
+	Enabled        *bool             `yaml:"enabled"`
+	Transport      string            `yaml:"transport"`
+	URL            string            `yaml:"url"`
+	Headers        map[string]string `yaml:"headers"`
+	TimeoutSeconds int32             `yaml:"timeout_seconds"`
+}
+
+type MCPConfig struct {
+	Servers []MCPServerConfig `yaml:"servers"`
 }
 
 type IdempotencyConfig struct {
@@ -105,6 +121,7 @@ type Config struct {
 	Idempotency IdempotencyConfig `yaml:"idempotency"`
 	Security    SecurityConfig    `yaml:"security"`
 	Cache       CacheConfig       `yaml:"cache"`
+	MCP         MCPConfig         `yaml:"mcp"`
 
 	listenOverride string
 }
@@ -150,6 +167,10 @@ func (c *Config) applyDefaults() {
 
 	if c.Chat.Generate.Temperature <= 0 {
 		c.Chat.Generate.Temperature = 0.2
+	}
+
+	if c.Chat.HistoryMaxMessages <= 0 {
+		c.Chat.HistoryMaxMessages = 40
 	}
 
 	if c.Agent.MaxTokens <= 0 {
@@ -206,6 +227,10 @@ func (c *Config) applyDefaults() {
 
 	if c.Index.MaxChunksPerWorkspace <= 0 {
 		c.Index.MaxChunksPerWorkspace = 10000
+	}
+
+	if c.Index.SearchWorkers <= 0 {
+		c.Index.SearchWorkers = 4
 	}
 
 	if c.Idempotency.TTLSeconds <= 0 {
@@ -385,4 +410,37 @@ func (c *Config) PromptCacheEntries() int {
 	}
 
 	return c.Cache.PromptPrefixEntries
+}
+
+func (c *Config) SearchWorkers() int {
+	if c == nil || c.Index.SearchWorkers <= 0 {
+		return 4
+	}
+
+	return c.Index.SearchWorkers
+}
+
+func (c *Config) HistoryMaxMessages() int {
+	if c == nil {
+		return 40
+	}
+
+	for _, r := range c.Runners {
+		enabled := true
+		if r.Enabled != nil {
+			enabled = *r.Enabled
+		}
+		if !enabled {
+			continue
+		}
+		if r.Hints.LLMHistoryMaxMessages > 0 {
+			return r.Hints.LLMHistoryMaxMessages
+		}
+	}
+
+	if c.Chat.HistoryMaxMessages > 0 {
+		return c.Chat.HistoryMaxMessages
+	}
+
+	return 40
 }

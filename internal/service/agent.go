@@ -20,9 +20,10 @@ type AgentService struct {
 	scanSecrets    bool
 	sessions       *AgentSessionStore
 	policy         *AgentPolicy
+	mcp            *MCPRegistry
 }
 
-func NewAgentService(llm *LLMRunnerService, cfg *config.Config) *AgentService {
+func NewAgentService(llm *LLMRunnerService, cfg *config.Config, mcp *MCPRegistry) *AgentService {
 	return &AgentService{
 		llm:            llm,
 		cfg:            cfg.Agent,
@@ -31,6 +32,7 @@ func NewAgentService(llm *LLMRunnerService, cfg *config.Config) *AgentService {
 		scanSecrets:    cfg.ContextScanSecrets(),
 		sessions:       NewAgentSessionStore(cfg.Agent.MaxSteps),
 		policy:         NewAgentPolicy(cfg.Agent.AllowedPaths, cfg.Agent.BlockedCommands),
+		mcp:            mcp,
 	}
 }
 
@@ -50,7 +52,7 @@ func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (d
 		}
 	}
 
-	system := agentStepSystemPrompt()
+	system := s.systemPrompt()
 	user := s.buildAgentStepUserPrompt(req)
 
 	messages := mapper.RunnerMessages(system, []domain.ChatMessage{
@@ -76,7 +78,7 @@ func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (d
 		return resp, nil
 	}
 
-	parsed.Calls = filterAgentToolCalls(parsed.Calls)
+	parsed.Calls = s.filterAgentToolCalls(parsed.Calls)
 	filtered, blocked := s.policy.FilterCalls(parsed.Calls)
 	parsed.Calls = filtered
 	parsed.Blocked = blocked
@@ -93,18 +95,28 @@ func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (d
 	return parsed, nil
 }
 
-func filterAgentToolCalls(calls []domain.AgentToolCall) []domain.AgentToolCall {
+func (s *AgentService) filterAgentToolCalls(calls []domain.AgentToolCall) []domain.AgentToolCall {
 	if len(calls) == 0 {
 		return []domain.AgentToolCall{}
 	}
 
 	out := make([]domain.AgentToolCall, 0, len(calls))
 	for _, call := range calls {
-		if IsKnownAgentTool(call.Tool) {
+		if IsKnownAgentTool(call.Tool, s.mcp) {
 			out = append(out, call)
 		}
 	}
 	return out
+}
+
+func (s *AgentService) systemPrompt() string {
+	base := agentStepSystemPromptText
+	if s != nil && s.mcp != nil {
+		if block := s.mcp.ToolsPromptBlock(); block != "" {
+			base += "\n\n" + block
+		}
+	}
+	return base
 }
 
 func (s *AgentService) agentGenerationParams() *gendomain.GenerationParams {
@@ -126,10 +138,6 @@ Available tools: list_dir, read_file, glob_search, search_content, apply_patch, 
 If the goal is complete, set finish=true and calls=[].
 If more work is needed, set finish=false and list tool calls with unique id fields like "call-1".
 When a previous tool call failed (stderr, non-zero exit code), analyze the error and retry with a corrected approach.`
-
-func agentStepSystemPrompt() string {
-	return agentStepSystemPromptText
-}
 
 func (s *AgentService) buildAgentStepUserPrompt(req domain.AgentStepRequest) string {
 	var b strings.Builder

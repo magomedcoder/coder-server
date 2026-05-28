@@ -1,12 +1,13 @@
 package domain
 
 type IndexChunk struct {
-	ID         string `json:"id"`
-	Path       string `json:"path,omitempty"`
-	Language   string `json:"language,omitempty"`
-	Content    string `json:"content"`
-	Symbol     string `json:"symbol,omitempty"`
-	SymbolType string `json:"symbol_type,omitempty"`
+	ID         string   `json:"id"`
+	Path       string   `json:"path,omitempty"`
+	Language   string   `json:"language,omitempty"`
+	Content    string   `json:"content"`
+	Symbol     string   `json:"symbol,omitempty"`
+	SymbolType string   `json:"symbol_type,omitempty"`
+	Imports    []string `json:"imports,omitempty"`
 }
 
 type IndexSyncRequest struct {
@@ -27,12 +28,13 @@ type SearchRequest struct {
 }
 
 type SearchHit struct {
-	ID       string  `json:"id"`
-	Path     string  `json:"path,omitempty"`
-	Language string  `json:"language,omitempty"`
-	Symbol   string  `json:"symbol,omitempty"`
-	Score    float64 `json:"score"`
-	Snippet  string  `json:"snippet"`
+	ID       string   `json:"id"`
+	Path     string   `json:"path,omitempty"`
+	Language string   `json:"language,omitempty"`
+	Symbol   string   `json:"symbol,omitempty"`
+	Score    float64  `json:"score"`
+	Snippet  string   `json:"snippet"`
+	Related  []string `json:"related,omitempty"`
 }
 
 type SearchResponse struct {
