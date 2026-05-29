@@ -17,12 +17,14 @@ import (
 )
 
 type App struct {
-	cfg     *config.Config
-	llm     *service.LLMRunnerService
-	handler *delivery.Handler
-	streams *delivery.ActiveStreams
-	metrics *service.Metrics
-	server  *http.Server
+	cfg       *config.Config
+	llm       *service.LLMRunnerService
+	handler   *delivery.Handler
+	streams   *delivery.ActiveStreams
+	metrics   *service.Metrics
+	jobRunner *service.JobRunner
+	jobCancel context.CancelFunc
+	server    *http.Server
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -38,24 +40,46 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	mcp := service.NewMCPRegistry(cfg.MCP)
+	qdrant := service.NewQdrantClient(cfg.Index.Qdrant.URL, cfg.Index.Qdrant.APIKey, cfg.Index.Qdrant.CollectionPrefix)
+	index := service.NewRepoIndex(cfg.SearchWorkers(), qdrant)
+	prefixCache := contextbuilder.NewPrefixCache(cfg.PromptCacheEntries())
+	chat := service.NewChatService(cfg, llm, index, prefixCache)
 	agent := service.NewAgentService(llm, cfg, mcp)
-	index := service.NewRepoIndex(cfg.SearchWorkers())
 	quota := service.NewTokenQuota(cfg.Quotas.MaxTokensPerDay)
 	idempotency := service.NewIdempotencyStore(cfg.IdempotencyTTL())
-	prefixCache := contextbuilder.NewPrefixCache(cfg.PromptCacheEntries())
 	testSuggest := service.NewTestSuggestService(llm, cfg.ChatTimeoutSeconds())
+	sandbox := service.NewCommandSandbox(cfg.Agent.Sandbox, cfg.Agent.AllowedCommands)
+
+	var jobs *service.JobStore
+	if cfg.PersistentQueueEnabled() {
+		jobs, err = service.NewJobStore(cfg.Reliability.PersistentQueuePath, cfg.Reliability.PersistentQueueMax)
+		if err != nil {
+			return nil, fmt.Errorf("persistent queue: %w", err)
+		}
+	}
+
+	jobRunner := service.NewJobRunner(jobs, llm.RequestQueue(), chat, agent)
 
 	return &App{
-		cfg:     cfg,
-		llm:     llm,
-		handler: delivery.NewHandler(cfg, llm, agent, index, quota, idempotency, prefixCache, mcp, testSuggest, streams, metrics),
-		streams: streams,
-		metrics: metrics,
+		cfg:       cfg,
+		llm:       llm,
+		handler:   delivery.NewHandler(cfg, llm, agent, chat, index, quota, idempotency, prefixCache, mcp, testSuggest, jobs, sandbox, streams, metrics),
+		streams:   streams,
+		metrics:   metrics,
+		jobRunner: jobRunner,
 	}, nil
 }
 
 func (a *App) Close() {
-	if a == nil || a.llm == nil {
+	if a == nil {
+		return
+	}
+
+	if a.jobCancel != nil {
+		a.jobCancel()
+	}
+
+	if a.llm == nil {
 		return
 	}
 
@@ -65,6 +89,12 @@ func (a *App) Close() {
 }
 
 func (a *App) Run() error {
+	if a.jobRunner != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		a.jobCancel = cancel
+		go a.jobRunner.RunLoop(ctx)
+	}
+
 	mux := http.NewServeMux()
 	a.handler.Register(mux)
 
@@ -101,6 +131,10 @@ func (a *App) Run() error {
 }
 
 func (a *App) shutdown() error {
+	if a.jobCancel != nil {
+		a.jobCancel()
+	}
+
 	if a.server == nil {
 		return nil
 	}

@@ -49,7 +49,7 @@ func (h *Handler) handleIndexSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	count, err := h.index.Sync(req, h.cfg.MaxIndexChunks())
+	count, err := h.index.Sync(r.Context(), h.llm, req, h.cfg.MaxIndexChunks())
 	if err != nil {
 		writeBadRequest(w, err.Error())
 		return

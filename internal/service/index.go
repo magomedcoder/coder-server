@@ -25,9 +25,10 @@ type RepoIndex struct {
 	importedBy    map[string]map[string][]string
 	symbols       map[string]map[string]string
 	searchWorkers int
+	qdrant        *QdrantClient
 }
 
-func NewRepoIndex(searchWorkers int) *RepoIndex {
+func NewRepoIndex(searchWorkers int, qdrant *QdrantClient) *RepoIndex {
 	if searchWorkers <= 0 {
 		searchWorkers = 4
 	}
@@ -38,10 +39,11 @@ func NewRepoIndex(searchWorkers int) *RepoIndex {
 		importedBy:    make(map[string]map[string][]string),
 		symbols:       make(map[string]map[string]string),
 		searchWorkers: searchWorkers,
+		qdrant:        qdrant,
 	}
 }
 
-func (idx *RepoIndex) Sync(req domain.IndexSyncRequest, maxChunks int) (int, error) {
+func (idx *RepoIndex) Sync(ctx context.Context, llm *LLMRunnerService, req domain.IndexSyncRequest, maxChunks int) (int, error) {
 	if idx == nil {
 		return 0, nil
 	}
@@ -52,7 +54,6 @@ func (idx *RepoIndex) Sync(req domain.IndexSyncRequest, maxChunks int) (int, err
 	}
 
 	idx.mu.Lock()
-	defer idx.mu.Unlock()
 
 	bucket, ok := idx.store[ws]
 	if !ok {
@@ -60,6 +61,7 @@ func (idx *RepoIndex) Sync(req domain.IndexSyncRequest, maxChunks int) (int, err
 		idx.store[ws] = bucket
 	}
 
+	var deletedIDs []string
 	for _, id := range req.Delete {
 		id = strings.TrimSpace(id)
 		if id != "" {
@@ -67,9 +69,11 @@ func (idx *RepoIndex) Sync(req domain.IndexSyncRequest, maxChunks int) (int, err
 				idx.removeGraphLocked(ws, ch.chunk)
 			}
 			delete(bucket, id)
+			deletedIDs = append(deletedIDs, id)
 		}
 	}
 
+	var qdrantUpserts []domain.IndexChunk
 	for _, c := range req.Upsert {
 		id := strings.TrimSpace(c.ID)
 		if id == "" || strings.TrimSpace(c.Content) == "" {
@@ -85,13 +89,38 @@ func (idx *RepoIndex) Sync(req domain.IndexSyncRequest, maxChunks int) (int, err
 			embed: embed,
 		}
 		idx.updateGraphLocked(ws, c)
+		qdrantUpserts = append(qdrantUpserts, c)
 	}
 
 	if maxChunks > 0 && len(bucket) > maxChunks {
-		return len(bucket), fmt.Errorf("превышен лимит %d chunks для workspace", maxChunks)
+		count := len(bucket)
+		idx.mu.Unlock()
+		return count, fmt.Errorf("превышен лимит %d chunks для workspace", maxChunks)
 	}
 
-	return len(bucket), nil
+	count := len(bucket)
+	idx.mu.Unlock()
+
+	if idx.qdrant != nil && len(deletedIDs) > 0 {
+		_ = idx.qdrant.Delete(ctx, ws, deletedIDs)
+	}
+
+	if idx.qdrant != nil && llm != nil {
+		for _, c := range qdrantUpserts {
+			emb, err := llm.Embed(ctx, c.Content)
+			if err != nil || len(emb) == 0 {
+				continue
+			}
+
+			_ = idx.qdrant.Upsert(ctx, ws, c.ID, emb, map[string]any{
+				"path":     c.Path,
+				"language": c.Language,
+				"symbol":   c.Symbol,
+			})
+		}
+	}
+
+	return count, nil
 }
 
 func (idx *RepoIndex) Search(ctx context.Context, llm *LLMRunnerService, req domain.SearchRequest) (domain.SearchResponse, error) {
@@ -134,11 +163,11 @@ func (idx *RepoIndex) Search(ctx context.Context, llm *LLMRunnerService, req dom
 
 	switch mode {
 	case "semantic":
-		hits = idx.searchSemantic(ctx, llm, chunks, query, limit)
+		hits = idx.searchSemantic(ctx, llm, chunks, query, limit, ws)
 	default:
 		hits = idx.searchKeyword(chunks, queryTerms, limit)
 		if mode == "hybrid" && llm != nil {
-			sem := idx.searchSemantic(ctx, llm, chunks, query, limit)
+			sem := idx.searchSemantic(ctx, llm, chunks, query, limit, ws)
 			hits = mergeHits(hits, sem, limit)
 		}
 	}
@@ -184,9 +213,15 @@ func (idx *RepoIndex) searchKeyword(chunks []*indexedChunk, queryTerms map[strin
 	return out
 }
 
-func (idx *RepoIndex) searchSemantic(ctx context.Context, llm *LLMRunnerService, chunks []*indexedChunk, query string, limit int) []domain.SearchHit {
+func (idx *RepoIndex) searchSemantic(ctx context.Context, llm *LLMRunnerService, chunks []*indexedChunk, query string, limit int, workspaceID string) []domain.SearchHit {
 	if llm == nil {
 		return nil
+	}
+
+	if idx.qdrant != nil {
+		if hits := idx.searchQdrant(ctx, llm, workspaceID, query, limit, chunks); len(hits) > 0 {
+			return hits
+		}
 	}
 
 	qEmb, err := llm.Embed(ctx, query)
@@ -248,6 +283,40 @@ func (idx *RepoIndex) searchSemantic(ctx context.Context, llm *LLMRunnerService,
 	out := make([]domain.SearchHit, 0, len(list))
 	for _, s := range list {
 		out = append(out, hitFromChunk(s.chunk, s.score))
+	}
+
+	return out
+}
+
+func (idx *RepoIndex) searchQdrant(ctx context.Context, llm *LLMRunnerService, workspaceID, query string, limit int, chunks []*indexedChunk) []domain.SearchHit {
+	qEmb, err := llm.Embed(ctx, query)
+	if err != nil || len(qEmb) == 0 {
+		return nil
+	}
+
+	ids, scores, err := idx.qdrant.Search(ctx, workspaceID, qEmb, limit)
+	if err != nil || len(ids) == 0 {
+		return nil
+	}
+
+	byID := make(map[string]*indexedChunk, len(chunks))
+	for _, ch := range chunks {
+		byID[ch.chunk.ID] = ch
+	}
+
+	out := make([]domain.SearchHit, 0, len(ids))
+	for i, id := range ids {
+		ch, ok := byID[id]
+		if !ok {
+			continue
+		}
+
+		score := 0.0
+		if i < len(scores) {
+			score = scores[i]
+		}
+
+		out = append(out, hitFromChunk(ch, score))
 	}
 
 	return out

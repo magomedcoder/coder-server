@@ -20,22 +20,25 @@ func NewMetrics() *Metrics {
 }
 
 type MetricsSnapshot struct {
-	ChatRequests     int64   `json:"chat_requests"`
-	ChatErrors       int64   `json:"chat_errors"`
-	AgentSteps       int64   `json:"agent_steps"`
-	AgentErrors      int64   `json:"agent_errors"`
-	TokensPrompt     int64   `json:"tokens_prompt"`
-	TokensCompletion int64   `json:"tokens_completion"`
-	QueueInFlight    int     `json:"queue_in_flight"`
-	QueueCapacity    int     `json:"queue_capacity"`
-	ActiveStreams    int64   `json:"active_streams"`
-	AvgLatencyMs     float64 `json:"avg_latency_ms"`
-	ErrorRate        float64 `json:"error_rate"`
-	QuotaUsedToday   int64   `json:"quota_tokens_used_today,omitempty"`
-	QuotaMaxPerDay   int64   `json:"quota_tokens_max_per_day,omitempty"`
+	ChatRequests     int64             `json:"chat_requests"`
+	ChatErrors       int64             `json:"chat_errors"`
+	AgentSteps       int64             `json:"agent_steps"`
+	AgentErrors      int64             `json:"agent_errors"`
+	TokensPrompt     int64             `json:"tokens_prompt"`
+	TokensCompletion int64             `json:"tokens_completion"`
+	QueueInFlight    int               `json:"queue_in_flight"`
+	QueueCapacity    int               `json:"queue_capacity"`
+	PendingJobs      int               `json:"pending_jobs"`
+	CompletedJobs    int64             `json:"completed_jobs"`
+	ActiveStreams    int64             `json:"active_streams"`
+	AvgLatencyMs     float64           `json:"avg_latency_ms"`
+	ErrorRate        float64           `json:"error_rate"`
+	RunnerStates     map[string]string `json:"runner_states,omitempty"`
+	QuotaUsedToday   int64             `json:"quota_tokens_used_today,omitempty"`
+	QuotaMaxPerDay   int64             `json:"quota_tokens_max_per_day,omitempty"`
 }
 
-func (m *Metrics) Snapshot(queue *RequestQueue, activeStreams int64, quota *TokenQuota) MetricsSnapshot {
+func (m *Metrics) Snapshot(queue *RequestQueue, activeStreams int64, quota *TokenQuota, jobs *JobStore, runnerStates map[string]string) MetricsSnapshot {
 	if m == nil {
 		return MetricsSnapshot{}
 	}
@@ -53,9 +56,19 @@ func (m *Metrics) Snapshot(queue *RequestQueue, activeStreams int64, quota *Toke
 		TokensCompletion: m.TokensCompletion.Load(),
 		ActiveStreams:    activeStreams,
 	}
+
 	if queue != nil {
 		snap.QueueInFlight = queue.InFlight()
 		snap.QueueCapacity = queue.Capacity()
+	}
+
+	if jobs != nil {
+		snap.PendingJobs = jobs.PendingCount()
+		snap.CompletedJobs = jobs.CompletedCount()
+	}
+
+	if len(runnerStates) > 0 {
+		snap.RunnerStates = runnerStates
 	}
 
 	if reqs > 0 {

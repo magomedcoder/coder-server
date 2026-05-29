@@ -13,6 +13,7 @@ type ChatRequest struct {
 	Editor    *EditorContext  `json:"editor,omitempty"`
 	Context   *ChatContext    `json:"context,omitempty"`
 	Search    *ChatSearch     `json:"search,omitempty"`
+	Session   *ChatSession    `json:"session,omitempty"`
 	Generate  *GenerateParams `json:"generate,omitempty"`
 }
 

@@ -54,6 +54,14 @@ func (s *LLMRunnerService) RequestQueue() *RequestQueue {
 	return s.queue
 }
 
+func (s *LLMRunnerService) CircuitSnapshot() map[string]string {
+	if s == nil || s.breaker == nil {
+		return nil
+	}
+
+	return s.breaker.Snapshot()
+}
+
 func (s *LLMRunnerService) Close() error {
 	if s == nil || s.pool == nil {
 		return nil

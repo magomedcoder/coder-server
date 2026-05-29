@@ -76,9 +76,25 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	messages := mapper.RunnerMessages(*req.System, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget(), h.cfg.ContextScanSecrets(), h.prefixCache)
 	genParams := mapper.GenerateParams(req.Generate, h.cfg.Chat.Generate)
-	ch, err := h.llm.SendMessage(r.Context(), messages, nil, h.cfg.ChatTimeoutSeconds(), genParams)
+	if req.Session != nil && req.Session.Temperature != nil {
+		temp := float32(*req.Session.Temperature)
+		genParams.Temperature = &temp
+	}
+
+	stopSeq := serviceStopSequences(req)
+	timeout := h.cfg.ChatTimeoutSeconds()
+	if req.Session != nil && req.Session.TimeoutSeconds != nil && *req.Session.TimeoutSeconds > 0 {
+		timeout = int32(*req.Session.TimeoutSeconds)
+	}
+
+	ch, err := h.llm.SendMessage(r.Context(), messages, stopSeq, timeout, genParams)
 	if err != nil {
 		h.recordChatErr()
+		if !*req.Stream {
+			h.mapRunnerErrorWithQueue(w, err, "chat", requestID, req)
+			return
+		}
+
 		h.mapRunnerError(w, err)
 		return
 	}
@@ -180,6 +196,14 @@ func trimChatHistory(messages []domain.ChatMessage, max int) []domain.ChatMessag
 	}
 
 	return messages[len(messages)-max:]
+}
+
+func serviceStopSequences(req domain.ChatRequest) []string {
+	if req.Session == nil {
+		return nil
+	}
+
+	return req.Session.StopSequences
 }
 
 func estimateChatTokens(req domain.ChatRequest) int64 {

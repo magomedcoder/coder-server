@@ -17,6 +17,8 @@ reliability:
   circuit_breaker_cooldown_seconds: 30
   max_concurrent_requests: 8
   queue_wait_seconds: 60
+  # persistent_queue_path: "/путь/coder-server/queue"
+  # persistent_queue_max: 256
 
 rate_limit:
   requests_per_minute: 120
@@ -40,6 +42,12 @@ agent:
   max_steps: 30
   # allowed_paths: ["src/", "tests/"]
   blocked_commands: ["rm -rf /", "mkfs.", ":(){ :|:& };:", "curl | sh", "wget | sh", "curl | bash", "wget | bash", "sudo ", "chmod 777 /", "dd if="]
+  allowed_commands: ["cargo", "go", "npm", "yarn", "pnpm", "python", "python3", "pytest", "make", "rustc", "node", "deno"]
+  sandbox:
+    enabled: false
+    workspace_root: "/путь/project"
+    max_output_bytes: 65536
+    command_timeout_seconds: 120
 
 # quotas:
 #   max_tokens_per_day: 500000
@@ -47,6 +55,10 @@ agent:
 index:
   max_chunks_per_workspace: 10000
   search_workers: 4
+  # qdrant:
+  #   url: "http://127.0.0.1:6333"
+  #   collection_prefix: "coder"
+  #   api_key: ""
 
 # mcp:
 #   servers:

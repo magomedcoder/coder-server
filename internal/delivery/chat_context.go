@@ -3,63 +3,35 @@ package delivery
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/domain"
+	"github.com/magomedcoder/coder-server/internal/service"
 )
 
 func (h *Handler) enrichContextFromSearch(ctx context.Context, req *domain.ChatRequest) {
-	if h == nil || req == nil || req.Search == nil || h.index == nil {
+	service.EnrichContextFromSearch(ctx, h.index, h.llm, req)
+}
+
+func (h *Handler) agentPolicy() *service.AgentPolicy {
+	if h.agent == nil {
+		return nil
+	}
+
+	return h.agent.Policy()
+}
+
+func (h *Handler) handleQueue(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/v1/queue/jobs/") {
+		h.handleQueueJob(w, r)
 		return
 	}
 
-	ws := strings.TrimSpace(req.Search.WorkspaceID)
-	if ws == "" {
+	if r.URL.Path == "/v1/queue" {
+		h.handleQueueStats(w, r)
 		return
 	}
 
-	query := strings.TrimSpace(req.Search.Query)
-	if query == "" && len(req.Messages) > 0 {
-		query = strings.TrimSpace(req.Messages[len(req.Messages)-1].Content)
-	}
-	if query == "" {
-		return
-	}
-
-	limit := req.Search.Limit
-	if limit <= 0 {
-		limit = 5
-	}
-
-	mode := strings.TrimSpace(req.Search.Mode)
-	if mode == "" {
-		mode = "hybrid"
-	}
-
-	resp, err := h.index.Search(ctx, h.llm, domain.SearchRequest{
-		WorkspaceID: ws,
-		Query:       query,
-		Limit:       limit,
-		Mode:        mode,
-	})
-	if err != nil || len(resp.Hits) == 0 {
-		return
-	}
-
-	if req.Context == nil {
-		req.Context = &domain.ChatContext{}
-	}
-
-	for _, hit := range resp.Hits {
-		snippet := domain.ContextSnippet{
-			Path:     hit.Path,
-			Language: hit.Language,
-			Content:  hit.Snippet,
-			Source:   "codebase",
-		}
-		if hit.Symbol != "" {
-			snippet.Content = fmt.Sprintf("// %s\n%s", hit.Symbol, hit.Snippet)
-		}
-		req.Context.Snippets = append(req.Context.Snippets, snippet)
-	}
+	writeJSON(w, http.StatusNotFound, domain.NewErrorResponse("not_found", fmt.Sprintf("path %q не найден", r.URL.Path)))
 }

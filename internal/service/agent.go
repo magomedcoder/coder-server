@@ -31,9 +31,17 @@ func NewAgentService(llm *LLMRunnerService, cfg *config.Config, mcp *MCPRegistry
 		tokenBudget:    cfg.ContextTokenBudget(),
 		scanSecrets:    cfg.ContextScanSecrets(),
 		sessions:       NewAgentSessionStore(cfg.Agent.MaxSteps),
-		policy:         NewAgentPolicy(cfg.Agent.AllowedPaths, cfg.Agent.BlockedCommands),
+		policy:         NewAgentPolicy(cfg.Agent.AllowedPaths, cfg.Agent.BlockedCommands, cfg.Agent.AllowedCommands),
 		mcp:            mcp,
 	}
+}
+
+func (s *AgentService) Policy() *AgentPolicy {
+	if s == nil {
+		return nil
+	}
+
+	return s.policy
 }
 
 func (s *AgentService) Step(ctx context.Context, req domain.AgentStepRequest) (domain.AgentStepResponse, error) {

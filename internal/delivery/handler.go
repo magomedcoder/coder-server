@@ -13,33 +13,42 @@ type Handler struct {
 	cfg           *config.Config
 	llm           *service.LLMRunnerService
 	agent         *service.AgentService
+	chat          *service.ChatService
 	index         *service.RepoIndex
 	quota         *service.TokenQuota
 	idempotency   *service.IdempotencyStore
 	prefixCache   *contextbuilder.PrefixCache
 	mcp           *service.MCPRegistry
 	testSuggest   *service.TestSuggestService
+	jobs          *service.JobStore
+	sandbox       *service.CommandSandbox
 	activeStreams *ActiveStreams
 	metrics       *service.Metrics
 }
 
-func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, index *service.RepoIndex, quota *service.TokenQuota, idempotency *service.IdempotencyStore, prefixCache *contextbuilder.PrefixCache, mcp *service.MCPRegistry, testSuggest *service.TestSuggestService, streams *ActiveStreams, metrics *service.Metrics) *Handler {
+func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, chat *service.ChatService, index *service.RepoIndex, quota *service.TokenQuota, idempotency *service.IdempotencyStore, prefixCache *contextbuilder.PrefixCache, mcp *service.MCPRegistry, testSuggest *service.TestSuggestService, jobs *service.JobStore, sandbox *service.CommandSandbox, streams *ActiveStreams, metrics *service.Metrics) *Handler {
 	return &Handler{
 		cfg:           cfg,
 		llm:           llm,
 		agent:         agent,
+		chat:          chat,
 		index:         index,
 		quota:         quota,
 		idempotency:   idempotency,
 		prefixCache:   prefixCache,
 		mcp:           mcp,
 		testSuggest:   testSuggest,
+		jobs:          jobs,
+		sandbox:       sandbox,
 		activeStreams: streams,
 		metrics:       metrics,
 	}
 }
 
 func (h *Handler) Register(mux *http.ServeMux) {
+	mux.HandleFunc("/v1/queue", h.handleQueue)
+	mux.HandleFunc("/v1/queue/", h.handleQueue)
+	mux.HandleFunc("/v1/agent/run", h.handleAgentRun)
 	mux.HandleFunc("/v1/health", h.handleHealth)
 	mux.HandleFunc("/v1/health/live", h.handleHealthLive)
 	mux.HandleFunc("/v1/health/ready", h.handleHealthReady)

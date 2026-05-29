@@ -12,12 +12,14 @@ import (
 type AgentPolicy struct {
 	allowedPaths    []string
 	blockedCommands []string
+	allowedCommands []string
 }
 
-func NewAgentPolicy(allowedPaths, blockedCommands []string) *AgentPolicy {
+func NewAgentPolicy(allowedPaths, blockedCommands, allowedCommands []string) *AgentPolicy {
 	return &AgentPolicy{
 		allowedPaths:    allowedPaths,
 		blockedCommands: blockedCommands,
+		allowedCommands: allowedCommands,
 	}
 }
 
@@ -54,16 +56,28 @@ func (p *AgentPolicy) validateCall(call domain.AgentToolCall) string {
 	}
 }
 
+func (p *AgentPolicy) ValidateRunCommand(command string) string {
+	return p.validateCommand(map[string]any{"command": command})
+}
+
 func (p *AgentPolicy) validateCommand(args map[string]any) string {
 	cmd := strings.ToLower(strings.TrimSpace(argString(args, "command")))
 	if cmd == "" {
 		return "пустая команда"
 	}
+
 	for _, blocked := range p.blockedCommands {
 		if strings.Contains(cmd, strings.ToLower(blocked)) {
 			return "команда заблокирована политикой"
 		}
 	}
+
+	if len(p.allowedCommands) > 0 {
+		if reason := validateAllowedCommand(cmd, p.allowedCommands); reason != "" {
+			return reason
+		}
+	}
+
 	return ""
 }
 

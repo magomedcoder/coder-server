@@ -71,6 +71,28 @@ func (cb *CircuitBreaker) RecordSuccess(addr string) {
 	st.openUntil = time.Time{}
 }
 
+func (cb *CircuitBreaker) Snapshot() map[string]string {
+	if cb == nil {
+		return nil
+	}
+
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	out := make(map[string]string, len(cb.states))
+	now := time.Now()
+	for addr, st := range cb.states {
+		if !st.openUntil.IsZero() && now.Before(st.openUntil) {
+			out[addr] = "open"
+		} else if st.failures > 0 {
+			out[addr] = "degraded"
+		} else {
+			out[addr] = "ok"
+		}
+	}
+
+	return out
+}
+
 func (cb *CircuitBreaker) RecordFailure(addr string) {
 	if cb == nil || addr == "" {
 		return

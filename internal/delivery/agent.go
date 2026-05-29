@@ -58,7 +58,7 @@ func (h *Handler) handleAgentStep(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.agent.Step(r.Context(), req)
 	if err != nil {
 		h.recordAgentErr()
-		h.mapRunnerError(w, err)
+		h.mapRunnerErrorWithQueue(w, err, "agent_step", requestID, req)
 		return
 	}
 

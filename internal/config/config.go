@@ -24,11 +24,20 @@ type ChatConfig struct {
 }
 
 type AgentConfig struct {
-	MaxTokens       int      `yaml:"max_tokens"`
-	Temperature     float64  `yaml:"temperature"`
-	MaxSteps        int      `yaml:"max_steps"`
-	AllowedPaths    []string `yaml:"allowed_paths"`
-	BlockedCommands []string `yaml:"blocked_commands"`
+	MaxTokens       int                `yaml:"max_tokens"`
+	Temperature     float64            `yaml:"temperature"`
+	MaxSteps        int                `yaml:"max_steps"`
+	AllowedPaths    []string           `yaml:"allowed_paths"`
+	BlockedCommands []string           `yaml:"blocked_commands"`
+	AllowedCommands []string           `yaml:"allowed_commands"`
+	Sandbox         AgentSandboxConfig `yaml:"sandbox"`
+}
+
+type AgentSandboxConfig struct {
+	Enabled           bool   `yaml:"enabled"`
+	WorkspaceRoot     string `yaml:"workspace_root"`
+	MaxOutputBytes    int    `yaml:"max_output_bytes"`
+	CommandTimeoutSec int    `yaml:"command_timeout_seconds"`
 }
 
 type RunnerHintsConfig struct {
@@ -50,11 +59,13 @@ type ContextConfig struct {
 }
 
 type ReliabilityConfig struct {
-	RunnerRetries              int `yaml:"runner_retries"`
-	CircuitBreakerFailures     int `yaml:"circuit_breaker_failures"`
-	CircuitBreakerCooldownSecs int `yaml:"circuit_breaker_cooldown_seconds"`
-	MaxConcurrentRequests      int `yaml:"max_concurrent_requests"`
-	QueueWaitSeconds           int `yaml:"queue_wait_seconds"`
+	RunnerRetries              int    `yaml:"runner_retries"`
+	CircuitBreakerFailures     int    `yaml:"circuit_breaker_failures"`
+	CircuitBreakerCooldownSecs int    `yaml:"circuit_breaker_cooldown_seconds"`
+	MaxConcurrentRequests      int    `yaml:"max_concurrent_requests"`
+	QueueWaitSeconds           int    `yaml:"queue_wait_seconds"`
+	PersistentQueuePath        string `yaml:"persistent_queue_path"`
+	PersistentQueueMax         int    `yaml:"persistent_queue_max"`
 }
 
 type RateLimitConfig struct {
@@ -74,8 +85,15 @@ type QuotasConfig struct {
 }
 
 type IndexConfig struct {
-	MaxChunksPerWorkspace int `yaml:"max_chunks_per_workspace"`
-	SearchWorkers         int `yaml:"search_workers"`
+	MaxChunksPerWorkspace int          `yaml:"max_chunks_per_workspace"`
+	SearchWorkers         int          `yaml:"search_workers"`
+	Qdrant                QdrantConfig `yaml:"qdrant"`
+}
+
+type QdrantConfig struct {
+	URL              string `yaml:"url"`
+	CollectionPrefix string `yaml:"collection_prefix"`
+	APIKey           string `yaml:"api_key"`
 }
 
 type MCPServerConfig struct {
@@ -189,6 +207,18 @@ func (c *Config) applyDefaults() {
 		c.Agent.BlockedCommands = defaultBlockedCommands()
 	}
 
+	if len(c.Agent.AllowedCommands) == 0 {
+		c.Agent.AllowedCommands = defaultAllowedCommands()
+	}
+
+	if c.Agent.Sandbox.MaxOutputBytes <= 0 {
+		c.Agent.Sandbox.MaxOutputBytes = 65536
+	}
+
+	if c.Agent.Sandbox.CommandTimeoutSec <= 0 {
+		c.Agent.Sandbox.CommandTimeoutSec = 120
+	}
+
 	if c.Context.TokenBudget <= 0 {
 		c.Context.TokenBudget = 8192
 	}
@@ -217,6 +247,10 @@ func (c *Config) applyDefaults() {
 		c.Reliability.QueueWaitSeconds = 60
 	}
 
+	if c.Reliability.PersistentQueueMax <= 0 {
+		c.Reliability.PersistentQueueMax = 256
+	}
+
 	if c.RateLimit.RequestsPerMinute <= 0 {
 		c.RateLimit.RequestsPerMinute = 120
 	}
@@ -231,6 +265,10 @@ func (c *Config) applyDefaults() {
 
 	if c.Index.SearchWorkers <= 0 {
 		c.Index.SearchWorkers = 4
+	}
+
+	if strings.TrimSpace(c.Index.Qdrant.CollectionPrefix) == "" {
+		c.Index.Qdrant.CollectionPrefix = "coder"
 	}
 
 	if c.Idempotency.TTLSeconds <= 0 {
@@ -261,6 +299,12 @@ func defaultBlockedCommands() []string {
 		"sudo ",
 		"chmod 777 /",
 		"dd if=",
+	}
+}
+
+func defaultAllowedCommands() []string {
+	return []string{
+		"cargo", "go", "npm", "yarn", "pnpm", "python", "python3", "pytest", "make", "rustc", "node", "deno", "bash", "sh",
 	}
 }
 
@@ -443,4 +487,16 @@ func (c *Config) HistoryMaxMessages() int {
 	}
 
 	return 40
+}
+
+func (c *Config) PersistentQueueEnabled() bool {
+	return c != nil && strings.TrimSpace(c.Reliability.PersistentQueuePath) != ""
+}
+
+func (c *Config) QdrantEnabled() bool {
+	return c != nil && strings.TrimSpace(c.Index.Qdrant.URL) != ""
+}
+
+func (c *Config) SandboxEnabled() bool {
+	return c != nil && c.Agent.Sandbox.Enabled && strings.TrimSpace(c.Agent.Sandbox.WorkspaceRoot) != ""
 }
