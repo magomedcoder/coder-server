@@ -69,7 +69,7 @@ Write minimal focused tests for the provided source. Use idiomatic test style fo
 	var resp domain.TestSuggestResponse
 	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
 		return domain.TestSuggestResponse{
-			Summary:  "raw model output",
+			Summary:  "сырой ответ модели",
 			TestCode: result.Content,
 		}, nil
 	}

@@ -94,7 +94,7 @@ func (p *AgentPolicy) validatePathArg(args map[string]any, key string) string {
 	if strings.HasPrefix(path, "../") || strings.Contains(path, "/../") || strings.HasPrefix(path, "/") {
 		if !p.absoluteAllowed(path) {
 			if strings.HasPrefix(path, "../") || strings.Contains(path, "/../") {
-				return "path traversal запрещён"
+				return "выход за пределы каталога запрещён"
 			}
 		}
 	}
@@ -110,7 +110,7 @@ func (p *AgentPolicy) validatePathArg(args map[string]any, key string) string {
 		}
 	}
 
-	return "путь вне allowlist"
+	return "путь вне разрешённого списка"
 }
 
 func (p *AgentPolicy) absoluteAllowed(path string) bool {

@@ -100,7 +100,7 @@ func (s *CommandSandbox) resolveCwd(cwd string) (string, error) {
 	clean := filepath.Clean(filepath.Join(s.root, filepath.FromSlash(strings.TrimPrefix(cwd, "/"))))
 	root := s.root + string(os.PathSeparator)
 	if clean != s.root && !strings.HasPrefix(clean, root) {
-		return "", errors.New("cwd вне sandbox root")
+		return "", errors.New("cwd вне корня sandbox")
 	}
 
 	info, err := os.Stat(clean)
@@ -134,7 +134,7 @@ func validateAllowedCommand(command string, allowed []string) string {
 		}
 	}
 
-	return "команда не в allowlist sandbox"
+	return "команда не в списке разрешённых sandbox"
 }
 
 func truncateOutput(s string, max int) string {
@@ -142,5 +142,5 @@ func truncateOutput(s string, max int) string {
 		return s
 	}
 
-	return s[:max] + "\n...[truncated]"
+	return s[:max] + "\n...[обрезано]"
 }

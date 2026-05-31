@@ -2,6 +2,7 @@ package security
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -29,11 +30,5 @@ func DetectPromptInjection(text string) bool {
 }
 
 func ScanMessages(messages []string) bool {
-	for _, m := range messages {
-		if DetectPromptInjection(m) {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(messages, DetectPromptInjection)
 }

@@ -105,12 +105,12 @@ func (st *AgentSessionStore) ContextHint(sessionID string) string {
 	}
 
 	if s.LastSummary != "" {
-		return fmt.Sprintf("step %d/%d, last summary: %s", s.StepCount, st.maxSteps, s.LastSummary)
+		return fmt.Sprintf("шаг %d/%d, последний итог: %s", s.StepCount, st.maxSteps, s.LastSummary)
 	}
 
 	if s.Goal != "" {
-		return fmt.Sprintf("step %d/%d, goal: %s", s.StepCount, st.maxSteps, s.Goal)
+		return fmt.Sprintf("шаг %d/%d, цель: %s", s.StepCount, st.maxSteps, s.Goal)
 	}
 
-	return fmt.Sprintf("step %d/%d", s.StepCount, st.maxSteps)
+	return fmt.Sprintf("шаг %d/%d", s.StepCount, st.maxSteps)
 }

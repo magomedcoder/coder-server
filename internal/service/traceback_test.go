@@ -9,7 +9,7 @@ error[E0425]: cannot find value 'x' in this scope
 `
 	got := ParseTraceback(stderr)
 	if got == "" || !contains(got, "E0425") {
-		t.Fatalf("unexpected: %q", got)
+		t.Fatalf("неожиданный разбор traceback: %q", got)
 	}
 }
 
@@ -21,7 +21,7 @@ ZeroDivisionError: division by zero
 `
 	got := ParseTraceback(stderr)
 	if got == "" {
-		t.Fatal("expected python error")
+		t.Fatal("ожидалась ошибка Python в traceback")
 	}
 }
 

@@ -64,7 +64,7 @@ func SummarizeFailure(o domain.AgentStepObservation) string {
 	}
 
 	if o.Result == nil {
-		return "tool call failed"
+		return "вызов инструмента завершился ошибкой"
 	}
 
 	if stderr, ok := o.Result["stderr"].(string); ok && stderr != "" {
@@ -78,7 +78,7 @@ func SummarizeFailure(o domain.AgentStepObservation) string {
 		return truncate(msg, 300)
 	}
 
-	return "tool call failed without details"
+	return "вызов инструмента завершился ошибкой без деталей"
 }
 
 func extractTracebackLine(stderr string) string {

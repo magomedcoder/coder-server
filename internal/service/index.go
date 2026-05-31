@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -324,7 +325,7 @@ func (idx *RepoIndex) searchQdrant(ctx context.Context, llm *LLMRunnerService, w
 
 func (ch *indexedChunk) embedding(ctx context.Context, llm *LLMRunnerService) ([]float32, error) {
 	if ch == nil {
-		return nil, fmt.Errorf("chunk is nil")
+		return nil, fmt.Errorf("chunk не задан")
 	}
 
 	if len(ch.embed) > 0 {
@@ -332,7 +333,7 @@ func (ch *indexedChunk) embedding(ctx context.Context, llm *LLMRunnerService) ([
 	}
 
 	if llm == nil {
-		return nil, fmt.Errorf("llm is nil")
+		return nil, fmt.Errorf("llm не задан")
 	}
 
 	emb, err := llm.Embed(ctx, ch.chunk.Content)
@@ -476,10 +477,8 @@ func (idx *RepoIndex) expandHitsWithGraph(ws string, hits []domain.SearchHit, li
 }
 
 func appendUnique(list []string, v string) []string {
-	for _, s := range list {
-		if s == v {
-			return list
-		}
+	if slices.Contains(list, v) {
+		return list
 	}
 
 	return append(list, v)
