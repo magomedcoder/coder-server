@@ -14,7 +14,7 @@ import (
 	"github.com/magomedcoder/gen/pkg/llmrunner"
 	"github.com/magomedcoder/gen/pkg/logger"
 	"github.com/magomedcoder/gen/pkg/mcpclient"
-	"github.com/magomedcoder/gen/pkg/runnerprompt"
+	"github.com/magomedcoder/gen/pkg/prompt"
 )
 
 func SamplingGenParamsForMCP(gp *domain.GenerationParams) *domain.GenerationParams {
@@ -65,8 +65,8 @@ func RunnerInferenceParams(in *domain.GenerationParams, messages []*domain.Messa
 		return &out
 	}
 
-	prepared := runnerprompt.PrepareMessagesForRunner(messages)
-	if p, err := runnerprompt.BuildChatPrompt(tmpl, prepared); err == nil {
+	prepared := prompt.PrepareMessagesForRunner(messages)
+	if p, err := prompt.BuildChatPrompt(tmpl, prepared); err == nil {
 		out.RenderedPrompt = p
 	}
 
@@ -139,7 +139,7 @@ func LogToolResolveMismatch(genParams *domain.GenerationParams, requested string
 	const maxList = 24
 	list := strings.Join(mcpNames, ", ")
 	if len(mcpNames) > maxList {
-		list = strings.Join(mcpNames[:maxList], ", ") + fmt.Sprintf(" …(всего mcp_*=%d)", len(mcpNames))
+		list = strings.Join(mcpNames[:maxList], ", ") + fmt.Sprintf(" ...(всего mcp_*=%d)", len(mcpNames))
 	}
 
 	logger.W("ChatUseCase tool-loop: phase=resolve_tools_mismatch requested=%q normalized=%q mcp_declared_count=%d declared_mcp_sample=[%s]", requested, n, len(mcpNames), list)
@@ -188,7 +188,7 @@ func ResolveDeclaredToolName(genParams *domain.GenerationParams, raw string) (st
 
 	if len(hits) == 0 {
 		if canon, sid, ok := TryRecoverSingleMCPServerToolAlias(genParams, n); ok {
-			logger.W("ChatUseCase tool-loop: phase=mcp_alias_recovered server_id=%d requested=%q resolved=%q (на сервере один MCP-tool; подменён неверный h… суффикс)", sid, strings.TrimSpace(raw), canon)
+			logger.W("ChatUseCase tool-loop: phase=mcp_alias_recovered server_id=%d requested=%q resolved=%q (на сервере один MCP-tool; подменён неверный h... суффикс)", sid, strings.TrimSpace(raw), canon)
 			return canon, true
 		}
 		return "", false
@@ -761,7 +761,7 @@ func ToolCallNamesForLog(calls []ExecutableToolCall) string {
 	parts := make([]string, 0, len(calls))
 	for i, c := range calls {
 		if i >= 12 {
-			parts = append(parts, fmt.Sprintf("…+%d", len(calls)-12))
+			parts = append(parts, fmt.Sprintf("...+%d", len(calls)-12))
 			break
 		}
 

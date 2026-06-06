@@ -4,8 +4,8 @@ import (
 	"sort"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/gen/pkg/chatprompt"
 	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/gen/pkg/prompt"
 )
 
 const (
@@ -62,6 +62,6 @@ func SelectMultiFileCandidates(
 	return selected
 }
 
-func BuildContextBlockFromMultiFile(fileName string, scored []domain.ScoredDocumentRAGChunk, perFileBudget int, deepMapSummary string) (chatprompt.DocumentContextBlock, int) {
+func BuildContextBlockFromMultiFile(fileName string, scored []domain.ScoredDocumentRAGChunk, perFileBudget int, deepMapSummary string) (prompt.DocumentContextBlock, int) {
 	return BuildContextBlock(fileName, scored, perFileBudget, deepMapSummary)
 }

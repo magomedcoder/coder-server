@@ -118,6 +118,6 @@ func TestApplyRenderedPromptToRequest(t *testing.T) {
 
 	applyRenderedPromptToRequest(req, &domain.GenerationParams{RenderedPrompt: "   "})
 	if req.RenderedPrompt != nil {
-		t.Fatal("только пробелы — поле не должно устанавливаться")
+		t.Fatal("только пробелы - поле не должно устанавливаться")
 	}
 }

@@ -7,8 +7,7 @@ import (
 	"github.com/magomedcoder/gen/pkg/document"
 	"github.com/magomedcoder/gen/pkg/domain"
 	"github.com/magomedcoder/gen/pkg/logger"
-	"github.com/magomedcoder/gen/pkg/rpcmeta"
-	"github.com/magomedcoder/gen/pkg/runnerprompt"
+	"github.com/magomedcoder/gen/pkg/prompt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"io"
@@ -91,7 +90,7 @@ func (s *LLMRunnerService) Close() error {
 }
 
 func (s *LLMRunnerService) rpcCtx(ctx context.Context) context.Context {
-	return rpcmeta.OutgoingContext(ctx)
+	return OutgoingContext(ctx)
 }
 
 func (s *LLMRunnerService) CheckConnection(ctx context.Context) (bool, error) {
@@ -298,7 +297,7 @@ func (s *LLMRunnerService) sendMessageStream(
 
 	gpForRunner := genParams
 	if gpForRunner != nil {
-		if prepared, err := runnerprompt.EnsureRenderedPrompt(gpForRunner, messages); err == nil {
+		if prepared, err := prompt.EnsureRenderedPrompt(gpForRunner, messages); err == nil {
 			gpForRunner = prepared
 		}
 	}
@@ -414,7 +413,7 @@ func applyRenderedPromptToRequest(req *llmrunnerpb.SendMessageRequest, genParams
 }
 
 func domainMessagesToProto(messages []*domain.Message) []*llmrunnerpb.ChatMessage {
-	prepared := runnerprompt.PrepareMessagesForRunner(messages)
+	prepared := prompt.PrepareMessagesForRunner(messages)
 	out := make([]*llmrunnerpb.ChatMessage, 0, len(prepared))
 	for _, m := range prepared {
 		if m == nil {

@@ -12,7 +12,7 @@ import (
 	"github.com/magomedcoder/gen/pkg/domain"
 	"github.com/magomedcoder/gen/pkg/llmhistory"
 	"github.com/magomedcoder/gen/pkg/logger"
-	"github.com/magomedcoder/gen/pkg/mcpvision"
+	"github.com/magomedcoder/gen/pkg/mcpclient"
 	"github.com/magomedcoder/gen/pkg/toolloop"
 )
 
@@ -104,7 +104,7 @@ func runLoop(ctx context.Context, cfg Config, maxRounds int, out chan<- chatstre
 
 	gp := toolloop.CloneGenParamsForToolCalls(cfg.GenParams)
 	history := append([]*domain.Message(nil), cfg.InitialHistory...)
-	userTurnVision := mcpvision.LastUserMessageHasVisionAttachment(cfg.InitialHistory)
+	userTurnVision := mcpclient.LastUserMessageHasVisionAttachment(cfg.InitialHistory)
 
 	logger.I("agent: session_id=%d phase=enter runner=%q history_msgs=%d tools=%d max_rounds=%d", cfg.SessionID, cfg.RunnerAddr, len(history), len(gp.Tools), maxRounds)
 
@@ -312,7 +312,7 @@ func runToolRound(
 	if failCount > 0 {
 		_ = send(chatstream.ChatStreamChunk{
 			Kind: chatstream.StreamChunkKindNotice,
-			Text: "Один или несколько инструментов завершились с ошибкой. Формирую понятный response…",
+			Text: "Один или несколько инструментов завершились с ошибкой. Формирую понятный response...",
 		})
 	}
 

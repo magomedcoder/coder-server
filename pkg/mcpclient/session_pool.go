@@ -2,11 +2,12 @@ package mcpclient
 
 import (
 	"context"
-	"github.com/magomedcoder/gen/pkg/mcpclient/domain"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/magomedcoder/gen/pkg/mcpclient/domain"
 
 	"github.com/magomedcoder/gen/pkg/logger"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -89,7 +90,7 @@ func (p *httpSessionPool) run(ctx context.Context, srv *domain.MCPServer, notify
 		opCtx, cancel := context.WithTimeout(ctx, timeoutFor(srv))
 
 		if pc.session == nil {
-			logger.D("MCP http_pool: server_id=%d name=%q новое_подключение fp=%.12s…", srv.ID, strings.TrimSpace(srv.Name), fp)
+			logger.D("MCP http_pool: server_id=%d name=%q новое_подключение fp=%.12s...", srv.ID, strings.TrimSpace(srv.Name), fp)
 			transport, err := transportFor(ctx, srv)
 			if err != nil {
 				cancel()

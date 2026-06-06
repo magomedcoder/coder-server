@@ -2,7 +2,7 @@ package rag
 
 import (
 	"fmt"
-	"github.com/magomedcoder/gen/pkg/chatprompt"
+	"github.com/magomedcoder/gen/pkg/prompt"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -132,7 +132,7 @@ func BuildMessageWithRAG(fileName string, userMessage string, scored []domain.Sc
 	return b.String()
 }
 
-func BuildContextBlock(fileName string, scored []domain.ScoredDocumentRAGChunk, maxContextRunes int, deepMapSummary string) (chatprompt.DocumentContextBlock, int) {
+func BuildContextBlock(fileName string, scored []domain.ScoredDocumentRAGChunk, maxContextRunes int, deepMapSummary string) (prompt.DocumentContextBlock, int) {
 	if maxContextRunes < 200 {
 		maxContextRunes = 200
 	}
@@ -185,7 +185,7 @@ func BuildContextBlock(fileName string, scored []domain.ScoredDocumentRAGChunk, 
 		}
 	}
 
-	return chatprompt.DocumentContextBlock{
+	return prompt.DocumentContextBlock{
 		Title:      "RAG-контекст: " + fileName,
 		Body:       strings.TrimSpace(b.String()),
 		SourceType: "rag",

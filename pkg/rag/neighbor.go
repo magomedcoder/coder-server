@@ -7,6 +7,8 @@ import (
 	"github.com/magomedcoder/gen/pkg/domain"
 )
 
+const NeighborOnlyChunkScore = -1e9
+
 type ChunkIndexFetcher interface {
 	GetChunksByFileChunkIndices(ctx context.Context, sessionID int64, userID int, fileID int64, embeddingModel string, chunkIndices []int) ([]domain.DocumentRAGChunk, error)
 }

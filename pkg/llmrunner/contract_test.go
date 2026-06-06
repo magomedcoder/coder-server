@@ -34,7 +34,7 @@ func TestContract_SendMessageRequest_hasNoModelField(t *testing.T) {
 	t.Parallel()
 	d := (&llmrunnerpb.SendMessageRequest{}).ProtoReflect().Descriptor()
 	if d.Fields().ByName("model") != nil {
-		t.Fatal("поля SendMessageRequest.model быть не должно — сначала LoadModel")
+		t.Fatal("поля SendMessageRequest.model быть не должно - сначала LoadModel")
 	}
 }
 
@@ -42,7 +42,7 @@ func TestContract_EmbedRequest_hasNoModelField(t *testing.T) {
 	t.Parallel()
 	d := (&llmrunnerpb.EmbedRequest{}).ProtoReflect().Descriptor()
 	if d.Fields().ByName("model") != nil {
-		t.Fatal("поля EmbedRequest.model быть не должно — сначала LoadModel")
+		t.Fatal("поля EmbedRequest.model быть не должно - сначала LoadModel")
 	}
 }
 
@@ -50,7 +50,7 @@ func TestContract_EmbedBatchRequest_hasNoModelField(t *testing.T) {
 	t.Parallel()
 	d := (&llmrunnerpb.EmbedBatchRequest{}).ProtoReflect().Descriptor()
 	if d.Fields().ByName("model") != nil {
-		t.Fatal("поля EmbedBatchRequest.model быть не должно — сначала LoadModel")
+		t.Fatal("поля EmbedBatchRequest.model быть не должно - сначала LoadModel")
 	}
 }
 

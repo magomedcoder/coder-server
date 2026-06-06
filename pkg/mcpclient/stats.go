@@ -28,6 +28,9 @@ type callToolServerStat struct {
 
 var callToolByServer sync.Map
 
+var maxTrackedCallStatServerIDs atomic.Int64
+var callToolStatDistinctCount atomic.Uint64
+
 type CallToolServerCounters struct {
 	OK           uint64
 	TransportErr uint64
@@ -183,4 +186,12 @@ func MCPCountersMap() map[string]uint64 {
 	})
 
 	return out
+}
+
+func SetMaxTrackedCallStatServerIDs(n int) {
+	if n < 0 {
+		n = 0
+	}
+
+	maxTrackedCallStatServerIDs.Store(int64(n))
 }
