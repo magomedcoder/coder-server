@@ -61,6 +61,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/search", h.handleSearch)
 	mux.HandleFunc("/v1/chat", h.handleChat)
 	mux.HandleFunc("/v1/chat/stream", h.handleChatStream)
+	mux.HandleFunc("/v1/complete", h.handleComplete)
+	mux.HandleFunc("/v1/edit", h.handleEdit)
 	mux.HandleFunc("/v1/agent/step", h.handleAgentStep)
 	mux.HandleFunc("/v1/agent/test-suggest", h.handleTestSuggest)
 }
