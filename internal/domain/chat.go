@@ -25,23 +25,16 @@ type ChatSearch struct {
 }
 
 type ChatResponse struct {
-	Message ChatMessage `json:"message"`
-	Finish  string      `json:"finish"`
-	Usage   *TokenUsage `json:"usage,omitempty"`
+	Message   ChatMessage `json:"message"`
+	Reasoning string      `json:"reasoning,omitempty"`
+	Finish    string      `json:"finish"`
+	Usage     *TokenUsage `json:"usage,omitempty"`
 }
 
 type TokenUsage struct {
 	PromptTokens     int32 `json:"prompt_tokens,omitempty"`
 	CompletionTokens int32 `json:"completion_tokens,omitempty"`
 	TotalTokens      int32 `json:"total_tokens,omitempty"`
-}
-
-type EditorContext struct {
-	Path         string `json:"path,omitempty"`
-	Language     string `json:"language,omitempty"`
-	Snippet      string `json:"snippet,omitempty"`
-	CursorLine   *int   `json:"cursor_line,omitempty"`
-	CursorColumn *int   `json:"cursor_column,omitempty"`
 }
 
 type GenerateParams struct {

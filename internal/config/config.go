@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/magomedcoder/coder-server/pkg/llmclient"
+	"github.com/magomedcoder/coder-server/pkg/mcpregistry"
 	"github.com/magomedcoder/gen/pkg/llmrunner"
 	"gopkg.in/yaml.v3"
 )
@@ -47,10 +49,11 @@ type RunnerHintsConfig struct {
 }
 
 type RunnerConfig struct {
-	Addr    string            `yaml:"addr"`
-	Name    string            `yaml:"name"`
-	Enabled *bool             `yaml:"enabled"`
-	Hints   RunnerHintsConfig `yaml:"hints"`
+	Addr          string            `yaml:"addr"`
+	Name          string            `yaml:"name"`
+	SelectedModel string            `yaml:"selected_model"`
+	Enabled       *bool             `yaml:"enabled"`
+	Hints         RunnerHintsConfig `yaml:"hints"`
 }
 
 type ContextConfig struct {
@@ -406,14 +409,54 @@ func (c *Config) RunnerStates() []llmrunner.RunnerState {
 		}
 
 		states = append(states, llmrunner.RunnerState{
-			Address: addr,
-			Name:    name,
-			Enabled: enabled,
-			Hints:   hints,
+			Address:       addr,
+			Name:          name,
+			Enabled:       enabled,
+			SelectedModel: strings.TrimSpace(r.SelectedModel),
+			Hints:         hints,
 		})
 	}
 
 	return states
+}
+
+func (c *Config) LLMClientOptions() llmclient.Options {
+	if c == nil {
+		return llmclient.Options{}
+	}
+
+	return llmclient.Options{
+		RunnerStates: c.RunnerStates(),
+		Reliability: llmclient.ReliabilityOptions{
+			RunnerRetries:          c.Reliability.RunnerRetries,
+			CircuitBreakerFailures: c.Reliability.CircuitBreakerFailures,
+			CircuitBreakerCooldown: c.CircuitBreakerCooldown(),
+			MaxConcurrentRequests:  c.Reliability.MaxConcurrentRequests,
+			QueueWaitTimeout:       c.QueueWaitTimeout(),
+		},
+		SSEBufferTTL: c.SSEBufferTTL(),
+	}
+}
+
+func (c *Config) MCPServerConfigs() []mcpregistry.ServerConfig {
+	if c == nil {
+		return nil
+	}
+
+	out := make([]mcpregistry.ServerConfig, 0, len(c.MCP.Servers))
+	for _, s := range c.MCP.Servers {
+		out = append(out, mcpregistry.ServerConfig{
+			ID:             s.ID,
+			Name:           s.Name,
+			Enabled:        s.Enabled,
+			Transport:      s.Transport,
+			URL:            s.URL,
+			Headers:        s.Headers,
+			TimeoutSeconds: s.TimeoutSeconds,
+		})
+	}
+
+	return out
 }
 
 func (c *Config) AuthEnabled() bool {

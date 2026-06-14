@@ -1,44 +1,47 @@
-package service
+package ssestream
 
 import (
 	"sync"
 	"time"
 )
 
-type SSEEvent struct {
+type Event struct {
 	ID    int
 	Event string
 	Data  string
 }
 
-type StreamSession struct {
+type Session struct {
 	requestID string
-	events    []SSEEvent
+	events    []Event
 	done      bool
-	subs      map[int]chan SSEEvent
+	subs      map[int]chan Event
 	nextSubID int
 	mu        sync.RWMutex
 }
 
-type StreamRegistry struct {
+type Registry struct {
 	mu       sync.RWMutex
-	sessions map[string]*StreamSession
+	sessions map[string]*Session
 	ttl      time.Duration
 }
 
-func NewStreamRegistry(ttl time.Duration) *StreamRegistry {
+func NewRegistry(ttl time.Duration) *Registry {
 	if ttl <= 0 {
 		ttl = 5 * time.Minute
 	}
-	r := &StreamRegistry{
-		sessions: make(map[string]*StreamSession),
+
+	r := &Registry{
+		sessions: make(map[string]*Session),
 		ttl:      ttl,
 	}
+
 	go r.cleanupLoop()
+
 	return r
 }
 
-func (r *StreamRegistry) Start(requestID string) *StreamSession {
+func (r *Registry) Start(requestID string) *Session {
 	if r == nil || requestID == "" {
 		return nil
 	}
@@ -53,15 +56,17 @@ func (r *StreamRegistry) Start(requestID string) *StreamSession {
 		return existing
 	}
 
-	s := &StreamSession{
+	s := &Session{
 		requestID: requestID,
-		subs:      make(map[int]chan SSEEvent),
+		subs:      make(map[int]chan Event),
 	}
+
 	r.sessions[requestID] = s
+
 	return s
 }
 
-func (r *StreamRegistry) Get(requestID string) (*StreamSession, bool) {
+func (r *Registry) Get(requestID string) (*Session, bool) {
 	if r == nil || requestID == "" {
 		return nil, false
 	}
@@ -73,14 +78,14 @@ func (r *StreamRegistry) Get(requestID string) (*StreamSession, bool) {
 	return s, ok
 }
 
-func (s *StreamSession) Append(event SSEEvent) {
+func (s *Session) Append(event Event) {
 	if s == nil {
 		return
 	}
 
 	s.mu.Lock()
 	s.events = append(s.events, event)
-	subs := make([]chan SSEEvent, 0, len(s.subs))
+	subs := make([]chan Event, 0, len(s.subs))
 	for _, ch := range s.subs {
 		subs = append(subs, ch)
 	}
@@ -94,7 +99,7 @@ func (s *StreamSession) Append(event SSEEvent) {
 	}
 }
 
-func (s *StreamSession) MarkDone() {
+func (s *Session) MarkDone() {
 	if s == nil {
 		return
 	}
@@ -105,19 +110,22 @@ func (s *StreamSession) MarkDone() {
 		close(ch)
 		delete(s.subs, id)
 	}
+
 	s.mu.Unlock()
 }
 
-func (s *StreamSession) IsDone() bool {
+func (s *Session) IsDone() bool {
 	if s == nil {
 		return true
 	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	return s.done
 }
 
-func (s *StreamSession) EventsAfter(lastEventID int) []SSEEvent {
+func (s *Session) EventsAfter(lastEventID int) []Event {
 	if s == nil {
 		return nil
 	}
@@ -125,18 +133,19 @@ func (s *StreamSession) EventsAfter(lastEventID int) []SSEEvent {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	out := make([]SSEEvent, 0)
+	out := make([]Event, 0)
 	for _, e := range s.events {
 		if e.ID > lastEventID {
 			out = append(out, e)
 		}
 	}
+
 	return out
 }
 
-func (s *StreamSession) Subscribe() (<-chan SSEEvent, func()) {
+func (s *Session) Subscribe() (<-chan Event, func()) {
 	if s == nil {
-		ch := make(chan SSEEvent)
+		ch := make(chan Event)
 		close(ch)
 		return ch, func() {}
 	}
@@ -144,7 +153,7 @@ func (s *StreamSession) Subscribe() (<-chan SSEEvent, func()) {
 	s.mu.Lock()
 	id := s.nextSubID
 	s.nextSubID++
-	ch := make(chan SSEEvent, 64)
+	ch := make(chan Event, 64)
 	s.subs[id] = ch
 	s.mu.Unlock()
 
@@ -160,7 +169,7 @@ func (s *StreamSession) Subscribe() (<-chan SSEEvent, func()) {
 	return ch, unsub
 }
 
-func (r *StreamRegistry) cleanupLoop() {
+func (r *Registry) cleanupLoop() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
@@ -169,7 +178,7 @@ func (r *StreamRegistry) cleanupLoop() {
 	}
 }
 
-func (r *StreamRegistry) cleanup(cutoff time.Time) {
+func (r *Registry) cleanup(cutoff time.Time) {
 	if r == nil {
 		return
 	}

@@ -4,6 +4,7 @@ port: 8000
 runners:
   - addr: "127.0.0.1:50052"
     name: local
+    # selected_model: "model"
     hints:
       max_context_tokens: 8192
 

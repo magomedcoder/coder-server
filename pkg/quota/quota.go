@@ -1,29 +1,29 @@
-package service
+package quota
 
 import (
 	"sync"
 	"time"
 )
 
-type TokenQuota struct {
+type Quota struct {
 	mu        sync.Mutex
 	maxPerDay int64
 	usedToday int64
 	dayStart  time.Time
 }
 
-func NewTokenQuota(maxPerDay int64) *TokenQuota {
+func New(maxPerDay int64) *Quota {
 	if maxPerDay <= 0 {
 		return nil
 	}
 
-	return &TokenQuota{
+	return &Quota{
 		maxPerDay: maxPerDay,
 		dayStart:  startOfDay(time.Now()),
 	}
 }
 
-func (q *TokenQuota) WouldAllow(add int64) bool {
+func (q *Quota) WouldAllow(add int64) bool {
 	if q == nil || add <= 0 {
 		return true
 	}
@@ -40,7 +40,7 @@ func (q *TokenQuota) WouldAllow(add int64) bool {
 	return q.usedToday+add <= q.maxPerDay
 }
 
-func (q *TokenQuota) Record(add int64) {
+func (q *Quota) Record(add int64) {
 	if q == nil || add <= 0 {
 		return
 	}
@@ -56,7 +56,7 @@ func (q *TokenQuota) Record(add int64) {
 	q.usedToday += add
 }
 
-func (q *TokenQuota) Allow(add int64) bool {
+func (q *Quota) Allow(add int64) bool {
 	if !q.WouldAllow(add) {
 		return false
 	}
@@ -65,7 +65,7 @@ func (q *TokenQuota) Allow(add int64) bool {
 	return true
 }
 
-func (q *TokenQuota) Snapshot() (used, max int64) {
+func (q *Quota) Snapshot() (used, max int64) {
 	if q == nil {
 		return 0, 0
 	}

@@ -1,4 +1,4 @@
-package domain
+package context
 
 type WorkspaceContext struct {
 	Root   string `json:"root,omitempty"`
@@ -24,6 +24,14 @@ type ContextSnippet struct {
 type TreeEntry struct {
 	Path string `json:"path,omitempty"`
 	Kind string `json:"kind,omitempty"`
+}
+
+type EditorContext struct {
+	Path         string `json:"path,omitempty"`
+	Language     string `json:"language,omitempty"`
+	Snippet      string `json:"snippet,omitempty"`
+	CursorLine   *int   `json:"cursor_line,omitempty"`
+	CursorColumn *int   `json:"cursor_column,omitempty"`
 }
 
 type ChatContext struct {

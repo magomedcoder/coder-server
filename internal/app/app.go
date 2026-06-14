@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/magomedcoder/coder-server/internal/config"
-	"github.com/magomedcoder/coder-server/internal/contextbuilder"
 	"github.com/magomedcoder/coder-server/internal/delivery"
 	"github.com/magomedcoder/coder-server/internal/service"
+	"github.com/magomedcoder/coder-server/pkg/contextbuilder"
 )
 
 type App struct {

@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/config"
-	"github.com/magomedcoder/coder-server/internal/contextbuilder"
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
+	"github.com/magomedcoder/coder-server/pkg/contextbuilder"
 	gendomain "github.com/magomedcoder/gen/pkg/domain"
 )
 
@@ -46,9 +46,10 @@ func (s *ChatService) Complete(ctx context.Context, req domain.ChatRequest) (dom
 	}
 
 	return domain.ChatResponse{
-		Message: domain.ChatMessage{Role: "assistant", Content: result.Content},
-		Finish:  "stop",
-		Usage:   mapper.TokenUsage(result.Usage),
+		Message:   domain.ChatMessage{Role: "assistant", Content: result.Content},
+		Reasoning: result.Reasoning,
+		Finish:    "stop",
+		Usage:     mapper.TokenUsage(result.Usage),
 	}, nil
 }
 

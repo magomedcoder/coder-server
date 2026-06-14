@@ -8,8 +8,8 @@ import (
 
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
-	"github.com/magomedcoder/coder-server/internal/security"
 	"github.com/magomedcoder/coder-server/internal/service"
+	"github.com/magomedcoder/coder-server/pkg/security"
 )
 
 func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
@@ -110,8 +110,12 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var full strings.Builder
+	var reasoning strings.Builder
 	var usage *domain.TokenUsage
 	for chunk := range ch {
+		if chunk.ReasoningContent != "" {
+			reasoning.WriteString(chunk.ReasoningContent)
+		}
 		if chunk.Content != "" {
 			full.WriteString(chunk.Content)
 		}
@@ -128,6 +132,9 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		},
 		Finish: "stop",
 		Usage:  usage,
+	}
+	if rs := reasoning.String(); rs != "" {
+		resp.Reasoning = rs
 	}
 
 	h.recordChatOK()

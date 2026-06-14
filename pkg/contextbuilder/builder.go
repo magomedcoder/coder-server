@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/magomedcoder/coder-server/internal/domain"
-	"github.com/magomedcoder/coder-server/internal/security"
+	"github.com/magomedcoder/coder-server/pkg/context"
+	"github.com/magomedcoder/coder-server/pkg/security"
 )
 
 const approxCharsPerToken = 4
@@ -19,10 +19,14 @@ func New(tokenBudget int, scanSecrets bool) *Builder {
 	if tokenBudget <= 0 {
 		tokenBudget = 8192
 	}
-	return &Builder{tokenBudget: tokenBudget, scanSecrets: scanSecrets}
+
+	return &Builder{
+		tokenBudget: tokenBudget,
+		scanSecrets: scanSecrets,
+	}
 }
 
-func (b *Builder) Build(system string, editor *domain.EditorContext, ctx *domain.ChatContext) string {
+func (b *Builder) Build(system string, editor *context.EditorContext, ctx *context.ChatContext) string {
 	reserved := estimateTokens(system) + 512
 	budget := max(b.tokenBudget-reserved, 256)
 
@@ -36,6 +40,7 @@ func (b *Builder) Build(system string, editor *domain.EditorContext, ctx *domain
 				tokens:   estimateTokens(ws),
 			})
 		}
+
 		if sel := selectionPrompt(ctx.Selection); sel != "" {
 			parts = append(parts, contextPart{
 				priority: 0,
@@ -43,6 +48,7 @@ func (b *Builder) Build(system string, editor *domain.EditorContext, ctx *domain
 				tokens:   estimateTokens(sel),
 			})
 		}
+
 		for _, sn := range ctx.Snippets {
 			if p := snippetPrompt(sn); p != "" {
 				priority := snippetPriority(sn.Source)
@@ -52,6 +58,7 @@ func (b *Builder) Build(system string, editor *domain.EditorContext, ctx *domain
 				})
 			}
 		}
+
 		if tree := treePrompt(ctx.Tree); tree != "" {
 			parts = append(parts, contextPart{
 				priority: 4,
@@ -91,6 +98,7 @@ func (b *Builder) Build(system string, editor *domain.EditorContext, ctx *domain
 	if b.scanSecrets {
 		out = security.RedactSecrets(out)
 	}
+
 	return out
 }
 
@@ -135,6 +143,7 @@ func estimateTokens(text string) int {
 	if tokens < 1 {
 		return 1
 	}
+
 	return tokens
 }
 
@@ -142,15 +151,17 @@ func trimToTokenBudget(text string, budget int) string {
 	if budget <= 0 {
 		return ""
 	}
+
 	maxChars := budget * approxCharsPerToken
 	runes := []rune(text)
 	if len(runes) <= maxChars {
 		return text
 	}
+
 	return string(runes[:maxChars]) + "\n...[truncated]"
 }
 
-func workspacePrompt(ws *domain.WorkspaceContext) string {
+func workspacePrompt(ws *context.WorkspaceContext) string {
 	if ws == nil {
 		return ""
 	}
@@ -175,7 +186,7 @@ func workspacePrompt(ws *domain.WorkspaceContext) string {
 	return "Project:\n" + strings.Join(lines, "\n")
 }
 
-func selectionPrompt(sel *domain.SelectionContext) string {
+func selectionPrompt(sel *context.SelectionContext) string {
 	if sel == nil {
 		return ""
 	}
@@ -202,7 +213,7 @@ func selectionPrompt(sel *domain.SelectionContext) string {
 	return header + ":\n" + text
 }
 
-func snippetPrompt(sn domain.ContextSnippet) string {
+func snippetPrompt(sn context.ContextSnippet) string {
 	content := strings.TrimSpace(sn.Content)
 	if content == "" {
 		return ""
@@ -215,6 +226,7 @@ func snippetPrompt(sn domain.ContextSnippet) string {
 			label += " (" + l + ")"
 		}
 	}
+
 	if s := strings.TrimSpace(sn.Source); s != "" {
 		label += " [" + s + "]"
 	}
@@ -222,7 +234,7 @@ func snippetPrompt(sn domain.ContextSnippet) string {
 	return label + ":\n" + content
 }
 
-func editorContextPrompt(editor *domain.EditorContext) string {
+func editorContextPrompt(editor *context.EditorContext) string {
 	if editor == nil {
 		return ""
 	}
@@ -251,7 +263,7 @@ func editorContextPrompt(editor *domain.EditorContext) string {
 	return "Active editor:\n" + strings.Join(parts, "\n")
 }
 
-func treePrompt(entries []domain.TreeEntry) string {
+func treePrompt(entries []context.TreeEntry) string {
 	if len(entries) == 0 {
 		return ""
 	}
@@ -274,8 +286,10 @@ func treePrompt(entries []domain.TreeEntry) string {
 		}
 		fmt.Fprintf(&b, "- [%s] %s\n", kind, path)
 	}
+
 	if b.Len() <= len("Project tree:\n") {
 		return ""
 	}
+
 	return b.String()
 }

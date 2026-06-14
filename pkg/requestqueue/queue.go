@@ -1,4 +1,4 @@
-package service
+package requestqueue
 
 import (
 	"context"
@@ -8,25 +8,23 @@ import (
 
 var ErrQueueTimeout = errors.New("очередь переполнена: превышено время ожидания слота")
 
-var ErrQuotaExceeded = errors.New("превышен дневной лимит токенов")
-
-type RequestQueue struct {
+type Queue struct {
 	sem     chan struct{}
 	maxWait time.Duration
 }
 
-func NewRequestQueue(maxConcurrent int, maxWait time.Duration) *RequestQueue {
+func New(maxConcurrent int, maxWait time.Duration) *Queue {
 	if maxConcurrent <= 0 {
 		maxConcurrent = 8
 	}
 
-	return &RequestQueue{
+	return &Queue{
 		sem:     make(chan struct{}, maxConcurrent),
 		maxWait: maxWait,
 	}
 }
 
-func (q *RequestQueue) Acquire(ctx context.Context) error {
+func (q *Queue) Acquire(ctx context.Context) error {
 	if q == nil {
 		return nil
 	}
@@ -49,7 +47,7 @@ func (q *RequestQueue) Acquire(ctx context.Context) error {
 	}
 }
 
-func (q *RequestQueue) Release() {
+func (q *Queue) Release() {
 	if q == nil {
 		return
 	}
@@ -60,7 +58,7 @@ func (q *RequestQueue) Release() {
 	}
 }
 
-func (q *RequestQueue) InFlight() int {
+func (q *Queue) InFlight() int {
 	if q == nil {
 		return 0
 	}
@@ -68,7 +66,7 @@ func (q *RequestQueue) InFlight() int {
 	return len(q.sem)
 }
 
-func (q *RequestQueue) Capacity() int {
+func (q *Queue) Capacity() int {
 	if q == nil {
 		return 0
 	}

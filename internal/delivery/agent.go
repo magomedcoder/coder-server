@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/domain"
-	"github.com/magomedcoder/coder-server/internal/security"
+	"github.com/magomedcoder/coder-server/pkg/security"
 )
 
 func (h *Handler) handleAgentStep(w http.ResponseWriter, r *http.Request) {

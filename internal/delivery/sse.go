@@ -79,6 +79,10 @@ func writeRunnerSSE(ctx context.Context, w http.ResponseWriter, chunks <-chan ge
 			if chunk.Usage != nil {
 				usage = chunk.Usage
 			}
+			if chunk.ReasoningContent != "" {
+				delta, _ := json.Marshal(map[string]string{"text": chunk.ReasoningContent})
+				emit("reasoning", string(delta))
+			}
 			if chunk.Content == "" {
 				continue
 			}

@@ -1,4 +1,4 @@
-package service
+package circuitbreaker
 
 import (
 	"sync"
@@ -11,28 +11,30 @@ type circuitState struct {
 	lastFailure time.Time
 }
 
-type CircuitBreaker struct {
+type Breaker struct {
 	mu          sync.Mutex
 	states      map[string]*circuitState
 	maxFailures int
 	cooldown    time.Duration
 }
 
-func NewCircuitBreaker(maxFailures int, cooldown time.Duration) *CircuitBreaker {
+func New(maxFailures int, cooldown time.Duration) *Breaker {
 	if maxFailures <= 0 {
 		maxFailures = 3
 	}
+
 	if cooldown <= 0 {
 		cooldown = 30 * time.Second
 	}
-	return &CircuitBreaker{
+
+	return &Breaker{
 		states:      make(map[string]*circuitState),
 		maxFailures: maxFailures,
 		cooldown:    cooldown,
 	}
 }
 
-func (cb *CircuitBreaker) Allow(addr string) bool {
+func (cb *Breaker) Allow(addr string) bool {
 	if cb == nil || addr == "" {
 		return true
 	}
@@ -44,18 +46,21 @@ func (cb *CircuitBreaker) Allow(addr string) bool {
 	if st == nil {
 		return true
 	}
+
 	if st.openUntil.IsZero() {
 		return true
 	}
+
 	if time.Now().After(st.openUntil) {
 		st.openUntil = time.Time{}
 		st.failures = 0
 		return true
 	}
+
 	return false
 }
 
-func (cb *CircuitBreaker) RecordSuccess(addr string) {
+func (cb *Breaker) RecordSuccess(addr string) {
 	if cb == nil || addr == "" {
 		return
 	}
@@ -67,17 +72,19 @@ func (cb *CircuitBreaker) RecordSuccess(addr string) {
 	if !ok {
 		return
 	}
+
 	st.failures = 0
 	st.openUntil = time.Time{}
 }
 
-func (cb *CircuitBreaker) Snapshot() map[string]string {
+func (cb *Breaker) Snapshot() map[string]string {
 	if cb == nil {
 		return nil
 	}
 
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
+
 	out := make(map[string]string, len(cb.states))
 	now := time.Now()
 	for addr, st := range cb.states {
@@ -93,7 +100,7 @@ func (cb *CircuitBreaker) Snapshot() map[string]string {
 	return out
 }
 
-func (cb *CircuitBreaker) RecordFailure(addr string) {
+func (cb *Breaker) RecordFailure(addr string) {
 	if cb == nil || addr == "" {
 		return
 	}

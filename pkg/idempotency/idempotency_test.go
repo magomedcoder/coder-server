@@ -1,4 +1,4 @@
-package service
+package idempotency
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestIdempotencyStorePutGet(t *testing.T) {
-	store := NewIdempotencyStore(time.Minute)
+	store := New(time.Minute)
 	store.Put("req-1", 200, []byte(`{"ok":true}`))
 
 	status, body, ok := store.Get("req-1")

@@ -23,7 +23,7 @@ func IsKnownAgentTool(name string, mcp *MCPRegistry) bool {
 	}
 
 	if _, _, ok := mcpclient.ParseToolAlias(name); ok {
-		if mcp != nil && mcp.serverExistsByAlias(name) {
+		if mcp != nil && mcp.ServerExistsByAlias(name) {
 			return true
 		}
 	}

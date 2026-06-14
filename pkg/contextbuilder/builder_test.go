@@ -4,14 +4,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/magomedcoder/coder-server/internal/domain"
+	"github.com/magomedcoder/coder-server/pkg/context"
 )
 
 func TestBuilderPriority(t *testing.T) {
 	b := New(200, true)
-	out := b.Build("", nil, &domain.ChatContext{
-		Selection: &domain.SelectionContext{Text: "selected code"},
-		Snippets: []domain.ContextSnippet{
+	out := b.Build("", nil, &context.ChatContext{
+		Selection: &context.SelectionContext{Text: "selected code"},
+		Snippets: []context.ContextSnippet{
 			{
 				Path:    "a.rs",
 				Content: "mention file",
@@ -19,9 +19,11 @@ func TestBuilderPriority(t *testing.T) {
 			},
 		},
 	})
+
 	if out == "" {
 		t.Fatal("expected non-empty context")
 	}
+
 	for _, part := range []string{"Selection", "selected code", "File: a.rs"} {
 		if !strings.Contains(out, part) {
 			t.Fatalf("missing %q in %q", part, out)
@@ -32,8 +34,8 @@ func TestBuilderPriority(t *testing.T) {
 func TestBuilderTrimsToBudget(t *testing.T) {
 	b := New(600, false)
 	huge := strings.Repeat("x", 10000)
-	out := b.Build("", nil, &domain.ChatContext{
-		Selection: &domain.SelectionContext{Text: huge},
+	out := b.Build("", nil, &context.ChatContext{
+		Selection: &context.SelectionContext{Text: huge},
 	})
 
 	if out == "" {

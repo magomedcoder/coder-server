@@ -10,12 +10,9 @@ require (
 
 replace github.com/magomedcoder/gen => ../gen
 
-replace github.com/magomedcoder/gen-runner => ../gen-runner
-
 require (
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
-	github.com/magomedcoder/gen-runner v0.0.0-20260521191508-31535cede800 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.5.0 // indirect
 	github.com/richardlehane/mscfb v1.0.6 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect

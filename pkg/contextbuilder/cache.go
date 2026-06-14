@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/magomedcoder/coder-server/internal/domain"
+	"github.com/magomedcoder/coder-server/pkg/context"
 )
 
 type PrefixCache struct {
@@ -35,6 +35,7 @@ func (c *PrefixCache) Get(key string) (string, bool) {
 	c.mu.RLock()
 	v, ok := c.entries[key]
 	c.mu.RUnlock()
+
 	return v, ok
 }
 
@@ -45,6 +46,7 @@ func (c *PrefixCache) Put(key, value string) {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if _, ok := c.entries[key]; !ok {
 		c.order = append(c.order, key)
 	}
@@ -57,13 +59,13 @@ func (c *PrefixCache) Put(key, value string) {
 	}
 }
 
-func PrefixCacheKey(system string, editor *domain.EditorContext, ctx *domain.ChatContext, tokenBudget int, scanSecrets bool) string {
+func PrefixCacheKey(system string, editor *context.EditorContext, ctx *context.ChatContext, tokenBudget int, scanSecrets bool) string {
 	payload := struct {
-		System      string                `json:"system"`
-		Editor      *domain.EditorContext `json:"editor,omitempty"`
-		Context     *domain.ChatContext   `json:"context,omitempty"`
-		TokenBudget int                   `json:"token_budget"`
-		ScanSecrets bool                  `json:"scan_secrets"`
+		System      string                 `json:"system"`
+		Editor      *context.EditorContext `json:"editor,omitempty"`
+		Context     *context.ChatContext   `json:"context,omitempty"`
+		TokenBudget int                    `json:"token_budget"`
+		ScanSecrets bool                   `json:"scan_secrets"`
 	}{
 		System:      system,
 		Editor:      editor,
@@ -73,5 +75,6 @@ func PrefixCacheKey(system string, editor *domain.EditorContext, ctx *domain.Cha
 	}
 	data, _ := json.Marshal(payload)
 	sum := sha256.Sum256(data)
+
 	return hex.EncodeToString(sum[:])
 }

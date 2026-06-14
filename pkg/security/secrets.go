@@ -19,10 +19,12 @@ func RedactSecrets(text string) string {
 	if strings.TrimSpace(text) == "" {
 		return text
 	}
+
 	out := text
 	for _, re := range secretPatterns {
 		out = re.ReplaceAllString(out, redacted)
 	}
+
 	return out
 }
 
@@ -32,5 +34,6 @@ func ContainsSecrets(text string) bool {
 			return true
 		}
 	}
+
 	return false
 }

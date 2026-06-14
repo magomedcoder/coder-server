@@ -1,4 +1,4 @@
-package service
+package idempotency
 
 import (
 	"sync"
@@ -11,18 +11,18 @@ type idempotencyEntry struct {
 	expires time.Time
 }
 
-type IdempotencyStore struct {
+type Store struct {
 	mu      sync.RWMutex
 	entries map[string]idempotencyEntry
 	ttl     time.Duration
 }
 
-func NewIdempotencyStore(ttl time.Duration) *IdempotencyStore {
+func New(ttl time.Duration) *Store {
 	if ttl <= 0 {
 		ttl = 5 * time.Minute
 	}
 
-	s := &IdempotencyStore{
+	s := &Store{
 		entries: make(map[string]idempotencyEntry),
 		ttl:     ttl,
 	}
@@ -32,7 +32,7 @@ func NewIdempotencyStore(ttl time.Duration) *IdempotencyStore {
 	return s
 }
 
-func (s *IdempotencyStore) Get(key string) (status int, body []byte, ok bool) {
+func (s *Store) Get(key string) (status int, body []byte, ok bool) {
 	if s == nil || key == "" {
 		return 0, nil, false
 	}
@@ -48,7 +48,7 @@ func (s *IdempotencyStore) Get(key string) (status int, body []byte, ok bool) {
 	return e.status, append([]byte(nil), e.body...), true
 }
 
-func (s *IdempotencyStore) Put(key string, status int, body []byte) {
+func (s *Store) Put(key string, status int, body []byte) {
 	if s == nil || key == "" {
 		return
 	}
@@ -63,7 +63,7 @@ func (s *IdempotencyStore) Put(key string, status int, body []byte) {
 	s.mu.Unlock()
 }
 
-func (s *IdempotencyStore) cleanupLoop() {
+func (s *Store) cleanupLoop() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
@@ -71,7 +71,7 @@ func (s *IdempotencyStore) cleanupLoop() {
 	}
 }
 
-func (s *IdempotencyStore) cleanup() {
+func (s *Store) cleanup() {
 	if s == nil {
 		return
 	}

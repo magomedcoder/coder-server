@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/magomedcoder/coder-server/internal/config"
-	"github.com/magomedcoder/coder-server/internal/contextbuilder"
 	"github.com/magomedcoder/coder-server/internal/domain"
+	"github.com/magomedcoder/coder-server/pkg/contextbuilder"
 	gendomain "github.com/magomedcoder/gen/pkg/domain"
 )
 
