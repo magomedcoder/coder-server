@@ -1,6 +1,7 @@
 package domain
 
 type ChatSession struct {
+	SessionID      string   `json:"session_id,omitempty"`
 	StopSequences  []string `json:"stop_sequences,omitempty"`
 	Temperature    *float64 `json:"temperature,omitempty"`
 	TopK           *int     `json:"top_k,omitempty"`

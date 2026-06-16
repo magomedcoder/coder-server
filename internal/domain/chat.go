@@ -24,7 +24,13 @@ type ChatSearch struct {
 	Mode        string `json:"mode,omitempty"`
 }
 
+type ChatSessionResponse struct {
+	SessionID string        `json:"session_id"`
+	Messages  []ChatMessage `json:"messages"`
+}
+
 type ChatResponse struct {
+	SessionID string      `json:"session_id,omitempty"`
 	Message   ChatMessage `json:"message"`
 	Reasoning string      `json:"reasoning,omitempty"`
 	Finish    string      `json:"finish"`

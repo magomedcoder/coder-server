@@ -6,10 +6,14 @@ import (
 	"github.com/magomedcoder/coder-server/internal/config"
 )
 
+func boolPtr(v bool) *bool {
+	return &v
+}
+
 func TestCommandSandboxAllowed(t *testing.T) {
 	root := t.TempDir()
 	sb := NewCommandSandbox(config.AgentSandboxConfig{
-		Enabled:           true,
+		Enabled:           boolPtr(true),
 		WorkspaceRoot:     root,
 		MaxOutputBytes:    1024,
 		CommandTimeoutSec: 5,
@@ -30,7 +34,7 @@ func TestCommandSandboxAllowed(t *testing.T) {
 func TestCommandSandboxBlocksUnknown(t *testing.T) {
 	root := t.TempDir()
 	sb := NewCommandSandbox(config.AgentSandboxConfig{
-		Enabled:       true,
+		Enabled:       boolPtr(true),
 		WorkspaceRoot: root,
 	}, []string{"go"})
 	_, _, _, err := sb.Run(t.Context(), "curl example.com", "")

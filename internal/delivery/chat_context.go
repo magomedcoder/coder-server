@@ -14,6 +14,32 @@ func (h *Handler) enrichContextFromSearch(ctx context.Context, req *domain.ChatR
 	service.EnrichContextFromSearch(ctx, h.index, h.llm, req)
 }
 
+func (h *Handler) chatSystemPrompt(req domain.ChatRequest, realMCPTools bool) string {
+	system := ""
+	if req.System != nil {
+		system = strings.TrimSpace(*req.System)
+	}
+
+	if realMCPTools {
+		return system
+	}
+
+	if h.mcp == nil || !h.mcp.Enabled() || req.Session == nil || req.Session.MCPEnabled == nil || !*req.Session.MCPEnabled {
+		return system
+	}
+
+	block := h.mcp.ToolsPromptBlockForServers(req.Session.MCPServerIDs)
+	if block == "" {
+		return system
+	}
+	
+	if system == "" {
+		return block
+	}
+
+	return system + "\n\n" + block
+}
+
 func (h *Handler) agentPolicy() *service.AgentPolicy {
 	if h.agent == nil {
 		return nil

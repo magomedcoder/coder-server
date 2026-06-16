@@ -4,9 +4,12 @@ port: 8000
 runners:
   - addr: "127.0.0.1:50052"
     name: local
+    enabled: true
     # selected_model: "model"
     hints:
       max_context_tokens: 8192
+      llm_history_max_messages: 0 # 0 - использовать chat.history_max_messages
+      max_tool_invocation_rounds: 0
 
 context:
   token_budget: 8192
@@ -18,8 +21,8 @@ reliability:
   circuit_breaker_cooldown_seconds: 30
   max_concurrent_requests: 8
   queue_wait_seconds: 60
-  # persistent_queue_path: "/путь/coder-server/queue"
-  # persistent_queue_max: 256
+  persistent_queue_path: "~/.cache/coder-server/queue"
+  persistent_queue_max: 256
 
 rate_limit:
   requests_per_minute: 120
@@ -28,7 +31,7 @@ sse:
   buffer_ttl_seconds: 300
 
 logging:
-  structured: false
+  structured: true
 
 chat:
   timeout_seconds: 300
@@ -43,28 +46,29 @@ agent:
   max_steps: 30
   # allowed_paths: ["src/", "tests/"]
   blocked_commands: ["rm -rf /", "mkfs.", ":(){ :|:& };:", "curl | sh", "wget | sh", "curl | bash", "wget | bash", "sudo ", "chmod 777 /", "dd if="]
-  allowed_commands: ["cargo", "go", "npm", "yarn", "pnpm", "python", "python3", "pytest", "make", "rustc", "node", "deno"]
+  allowed_commands: ["cargo", "go", "npm", "yarn", "pnpm", "python", "python3", "pytest", "make", "rustc", "node", "deno", "bash", "sh"]
   sandbox:
-    enabled: false
-    workspace_root: "/путь/project"
+    enabled: true
+    workspace_root: "~/.cache/coder-server/sandbox"
     max_output_bytes: 65536
     command_timeout_seconds: 120
 
-# quotas:
-#   max_tokens_per_day: 500000
+quotas:
+  max_tokens_per_day: 500000
 
 index:
   max_chunks_per_workspace: 10000
   search_workers: 4
-  # qdrant:
-  #   url: "http://127.0.0.1:6333"
-  #   collection_prefix: "coder"
-  #   api_key: ""
+  qdrant:
+    url: "http://127.0.0.1:6333"
+    collection_prefix: "coder"
+    # api_key: ""
 
 # mcp:
 #   servers:
 #     - id: 1
 #       name: wiki
+#       enabled: true
 #       transport: streamable
 #       url: "http://127.0.0.1:8090/mcp"
 #       timeout_seconds: 120
@@ -77,3 +81,5 @@ security:
 
 cache:
   prompt_prefix_entries: 256
+
+# api_key: ""

@@ -10,6 +10,7 @@ import (
 	"github.com/magomedcoder/coder-server/internal/mapper"
 	"github.com/magomedcoder/coder-server/internal/service"
 	"github.com/magomedcoder/coder-server/pkg/security"
+	gendomain "github.com/magomedcoder/gen/pkg/domain"
 )
 
 func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
@@ -71,10 +72,18 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sessionID := ""
+	if h.chatSessions != nil {
+		sessionID = h.chatSessions.ResolveSessionID(&req)
+		req.Messages = h.chatSessions.Merge(sessionID, req.Messages)
+	}
+
 	h.enrichContextFromSearch(r.Context(), &req)
 	req.Messages = trimChatHistory(req.Messages, h.cfg.HistoryMaxMessages())
 
-	messages := mapper.RunnerMessages(*req.System, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget(), h.cfg.ContextScanSecrets(), h.prefixCache)
+	useMCPTools := h.chatMCPLoop != nil && h.chatMCPLoop.Enabled(r.Context(), req.Session)
+	systemPrompt := h.chatSystemPrompt(req, useMCPTools)
+	messages := mapper.RunnerMessages(systemPrompt, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget(), h.cfg.ContextScanSecrets(), h.prefixCache)
 	genParams := mapper.GenerateParams(req.Generate, h.cfg.Chat.Generate)
 	if req.Session != nil && req.Session.Temperature != nil {
 		temp := float32(*req.Session.Temperature)
@@ -85,6 +94,16 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 	timeout := h.cfg.ChatTimeoutSeconds()
 	if req.Session != nil && req.Session.TimeoutSeconds != nil && *req.Session.TimeoutSeconds > 0 {
 		timeout = int32(*req.Session.TimeoutSeconds)
+	}
+
+	var serverIDs []int64
+	if req.Session != nil {
+		serverIDs = req.Session.MCPServerIDs
+	}
+
+	if useMCPTools {
+		h.runChatWithMCPTools(r, w, req, requestID, sessionID, messages, stopSeq, timeout, genParams, serverIDs)
+		return
 	}
 
 	ch, err := h.llm.SendMessage(r.Context(), messages, stopSeq, timeout, genParams)
@@ -105,7 +124,9 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 			session = reg.Start(requestID)
 		}
 		h.recordChatOK()
-		writeRunnerSSE(r.Context(), w, ch, h.activeStreams, session, h.metrics, h.quota)
+		writeRunnerSSE(r.Context(), w, ch, h.activeStreams, session, h.metrics, h.quota, sessionID, func(content string) {
+			h.persistChatSession(sessionID, req.Messages, content)
+		})
 		return
 	}
 
@@ -125,16 +146,80 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	assistant := full.String()
+	h.persistChatSession(sessionID, req.Messages, assistant)
 	resp := domain.ChatResponse{
+		SessionID: sessionID,
 		Message: domain.ChatMessage{
 			Role:    "assistant",
-			Content: full.String(),
+			Content: assistant,
 		},
 		Finish: "stop",
 		Usage:  usage,
 	}
 	if rs := reasoning.String(); rs != "" {
 		resp.Reasoning = rs
+	}
+
+	h.recordChatOK()
+	if requestID != "" && h.idempotency != nil {
+		if body, err := json.Marshal(resp); err == nil {
+			h.idempotency.Put("chat:"+requestID, http.StatusOK, body)
+		}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handler) runChatWithMCPTools(
+	r *http.Request,
+	w http.ResponseWriter,
+	req domain.ChatRequest,
+	requestID, sessionID string,
+	messages []*gendomain.Message,
+	stopSeq []string,
+	timeout int32,
+	genParams *gendomain.GenerationParams,
+	serverIDs []int64,
+) {
+	if *req.Stream {
+		var session *service.StreamSession
+		if reg := h.llm.StreamRegistry(); reg != nil {
+			session = reg.Start(requestID)
+		}
+
+		h.recordChatOK()
+
+		writeChatMCPLoopSSE(r.Context(), w, h.chatMCPLoop, messages, stopSeq, timeout, genParams, serverIDs, h.activeStreams, session, h.metrics, h.quota, func(content string) {
+			h.persistChatSession(sessionID, req.Messages, content)
+		}, sessionID)
+		return
+	}
+
+	content, reasoning, usageRaw, err := h.chatMCPLoop.Run(r.Context(), messages, stopSeq, timeout, genParams, serverIDs, nil, nil)
+	if err != nil {
+		h.recordChatErr()
+		h.mapRunnerErrorWithQueue(w, err, "chat", requestID, req)
+		return
+	}
+
+	h.persistChatSession(sessionID, req.Messages, content)
+	resp := domain.ChatResponse{
+		SessionID: sessionID,
+		Message: domain.ChatMessage{
+			Role:    "assistant",
+			Content: content,
+		},
+		Finish: "stop",
+		Usage:  mapper.TokenUsage(usageRaw),
+	}
+
+	if reasoning != "" {
+		resp.Reasoning = reasoning
+	}
+
+	if usageRaw != nil {
+		h.recordTokenUsage(usageRaw.PromptTokens, usageRaw.CompletionTokens)
 	}
 
 	h.recordChatOK()
@@ -233,4 +318,20 @@ func estimateChatTokens(req domain.ChatRequest) int64 {
 	}
 
 	return est
+}
+
+func (h *Handler) persistChatSession(sessionID string, prior []domain.ChatMessage, assistant string) {
+	if h.chatSessions == nil || sessionID == "" {
+		return
+	}
+
+	out := append([]domain.ChatMessage(nil), prior...)
+	if strings.TrimSpace(assistant) != "" {
+		out = append(out, domain.ChatMessage{
+			Role: "assistant",
+			Content: assistant,
+		})
+	}
+
+	h.chatSessions.Record(sessionID, out)
 }

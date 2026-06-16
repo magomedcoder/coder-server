@@ -128,8 +128,16 @@ func snippetPriority(source string) int {
 		return 1
 	case "mention", "file", "@file":
 		return 2
-	default:
+	case "auto", "import":
 		return 3
+	case "codebase", "search":
+		return 4
+	case "terminal", "git", "diagnostics":
+		return 5
+	case "folder":
+		return 6
+	default:
+		return 7
 	}
 }
 

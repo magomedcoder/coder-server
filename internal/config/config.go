@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -36,7 +37,7 @@ type AgentConfig struct {
 }
 
 type AgentSandboxConfig struct {
-	Enabled           bool   `yaml:"enabled"`
+	Enabled           *bool  `yaml:"enabled"`
 	WorkspaceRoot     string `yaml:"workspace_root"`
 	MaxOutputBytes    int    `yaml:"max_output_bytes"`
 	CommandTimeoutSec int    `yaml:"command_timeout_seconds"`
@@ -80,7 +81,7 @@ type SSEConfig struct {
 }
 
 type LoggingConfig struct {
-	Structured bool `yaml:"structured"`
+	Structured *bool `yaml:"structured"`
 }
 
 type QuotasConfig struct {
@@ -161,177 +162,53 @@ func Load(path string) (*Config, error) {
 		}
 	}
 
-	c.applyDefaults()
+	c.expandPaths()
 	return c, nil
 }
 
-func (c *Config) applyDefaults() {
+
+func (c *Config) expandPaths() {
 	if c == nil {
 		return
 	}
 
-	if c.Host == "" {
-		c.Host = "127.0.0.1"
-	}
-
-	if c.Port <= 0 {
-		c.Port = 8000
-	}
-
-	if c.Chat.TimeoutSeconds <= 0 {
-		c.Chat.TimeoutSeconds = 300
-	}
-
-	if c.Chat.Generate.MaxTokens <= 0 {
-		c.Chat.Generate.MaxTokens = 1024
-	}
-
-	if c.Chat.Generate.Temperature <= 0 {
-		c.Chat.Generate.Temperature = 0.2
-	}
-
-	if c.Chat.HistoryMaxMessages <= 0 {
-		c.Chat.HistoryMaxMessages = 40
-	}
-
-	if c.Agent.MaxTokens <= 0 {
-		c.Agent.MaxTokens = 2048
-	}
-
-	if c.Agent.Temperature <= 0 {
-		c.Agent.Temperature = 0.1
-	}
-
-	if c.Agent.MaxSteps <= 0 {
-		c.Agent.MaxSteps = 30
-	}
-
-	if len(c.Agent.BlockedCommands) == 0 {
-		c.Agent.BlockedCommands = defaultBlockedCommands()
-	}
-
-	if len(c.Agent.AllowedCommands) == 0 {
-		c.Agent.AllowedCommands = defaultAllowedCommands()
-	}
-
-	if c.Agent.Sandbox.MaxOutputBytes <= 0 {
-		c.Agent.Sandbox.MaxOutputBytes = 65536
-	}
-
-	if c.Agent.Sandbox.CommandTimeoutSec <= 0 {
-		c.Agent.Sandbox.CommandTimeoutSec = 120
-	}
-
-	if c.Context.TokenBudget <= 0 {
-		c.Context.TokenBudget = 8192
-	}
-
-	if c.Context.ScanSecrets == nil {
-		v := true
-		c.Context.ScanSecrets = &v
-	}
-
-	if c.Reliability.RunnerRetries <= 0 {
-		c.Reliability.RunnerRetries = 2
-	}
-
-	if c.Reliability.CircuitBreakerFailures <= 0 {
-		c.Reliability.CircuitBreakerFailures = 3
-	}
-	if c.Reliability.CircuitBreakerCooldownSecs <= 0 {
-		c.Reliability.CircuitBreakerCooldownSecs = 30
-	}
-
-	if c.Reliability.MaxConcurrentRequests <= 0 {
-		c.Reliability.MaxConcurrentRequests = 8
-	}
-
-	if c.Reliability.QueueWaitSeconds <= 0 {
-		c.Reliability.QueueWaitSeconds = 60
-	}
-
-	if c.Reliability.PersistentQueueMax <= 0 {
-		c.Reliability.PersistentQueueMax = 256
-	}
-
-	if c.RateLimit.RequestsPerMinute <= 0 {
-		c.RateLimit.RequestsPerMinute = 120
-	}
-
-	if c.SSE.BufferTTLSeconds <= 0 {
-		c.SSE.BufferTTLSeconds = 300
-	}
-
-	if c.Index.MaxChunksPerWorkspace <= 0 {
-		c.Index.MaxChunksPerWorkspace = 10000
-	}
-
-	if c.Index.SearchWorkers <= 0 {
-		c.Index.SearchWorkers = 4
-	}
-
-	if strings.TrimSpace(c.Index.Qdrant.CollectionPrefix) == "" {
-		c.Index.Qdrant.CollectionPrefix = "coder"
-	}
-
-	if c.Idempotency.TTLSeconds <= 0 {
-		c.Idempotency.TTLSeconds = 300
-	}
-
-	if c.Security.ModerationEnabled == nil {
-		v := true
-		c.Security.ModerationEnabled = &v
-	}
-
-	if c.Cache.PromptPrefixEntries <= 0 {
-		c.Cache.PromptPrefixEntries = 256
-	}
-
-	c.ensureDefaultRunners()
+	c.Agent.Sandbox.WorkspaceRoot = expandHome(c.Agent.Sandbox.WorkspaceRoot)
+	c.Reliability.PersistentQueuePath = expandHome(c.Reliability.PersistentQueuePath)
 }
 
-func defaultBlockedCommands() []string {
-	return []string{
-		"rm -rf /",
-		"mkfs.",
-		":(){ :|:& };:",
-		"curl | sh",
-		"wget | sh",
-		"curl | bash",
-		"wget | bash",
-		"sudo ",
-		"chmod 777 /",
-		"dd if=",
+func expandHome(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" || !strings.HasPrefix(path, "~") {
+		return path
 	}
-}
 
-func defaultAllowedCommands() []string {
-	return []string{
-		"cargo", "go", "npm", "yarn", "pnpm", "python", "python3", "pytest", "make", "rustc", "node", "deno", "bash", "sh",
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
 	}
-}
 
-func (c *Config) ensureDefaultRunners() {
-	if c == nil || len(c.Runners) > 0 {
-		return
+	if path == "~" {
+		return home
 	}
-	c.Runners = []RunnerConfig{{
-		Addr: "127.0.0.1:50052",
-		Name: "local",
-	}}
+
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(home, path[2:])
+	}
+
+	return path
 }
 
 func (c *Config) ChatTimeoutSeconds() int32 {
-	if c == nil || c.Chat.TimeoutSeconds <= 0 {
-		return 300
+	if c == nil {
+		return 0
 	}
 
 	return int32(c.Chat.TimeoutSeconds)
 }
 
 func (c *Config) ContextTokenBudget() int {
-	if c == nil || c.Context.TokenBudget <= 0 {
-		return 8192
+	if c == nil {
+		return 0
 	}
 
 	return c.Context.TokenBudget
@@ -339,31 +216,31 @@ func (c *Config) ContextTokenBudget() int {
 
 func (c *Config) ContextScanSecrets() bool {
 	if c == nil || c.Context.ScanSecrets == nil {
-		return true
+		return false
 	}
 
 	return *c.Context.ScanSecrets
 }
 
 func (c *Config) SSEBufferTTL() time.Duration {
-	if c == nil || c.SSE.BufferTTLSeconds <= 0 {
-		return 5 * time.Minute
+	if c == nil {
+		return 0
 	}
 
 	return time.Duration(c.SSE.BufferTTLSeconds) * time.Second
 }
 
 func (c *Config) CircuitBreakerCooldown() time.Duration {
-	if c == nil || c.Reliability.CircuitBreakerCooldownSecs <= 0 {
-		return 30 * time.Second
+	if c == nil {
+		return 0
 	}
 
 	return time.Duration(c.Reliability.CircuitBreakerCooldownSecs) * time.Second
 }
 
 func (c *Config) QueueWaitTimeout() time.Duration {
-	if c == nil || c.Reliability.QueueWaitSeconds <= 0 {
-		return 60 * time.Second
+	if c == nil {
+		return 0
 	}
 
 	return time.Duration(c.Reliability.QueueWaitSeconds) * time.Second
@@ -468,16 +345,16 @@ func (c *Config) RateLimitEnabled() bool {
 }
 
 func (c *Config) MaxIndexChunks() int {
-	if c == nil || c.Index.MaxChunksPerWorkspace <= 0 {
-		return 10000
+	if c == nil {
+		return 0
 	}
 
 	return c.Index.MaxChunksPerWorkspace
 }
 
 func (c *Config) IdempotencyTTL() time.Duration {
-	if c == nil || c.Idempotency.TTLSeconds <= 0 {
-		return 5 * time.Minute
+	if c == nil {
+		return 0
 	}
 
 	return time.Duration(c.Idempotency.TTLSeconds) * time.Second
@@ -485,23 +362,23 @@ func (c *Config) IdempotencyTTL() time.Duration {
 
 func (c *Config) ModerationEnabled() bool {
 	if c == nil || c.Security.ModerationEnabled == nil {
-		return true
+		return false
 	}
 
 	return *c.Security.ModerationEnabled
 }
 
 func (c *Config) PromptCacheEntries() int {
-	if c == nil || c.Cache.PromptPrefixEntries <= 0 {
-		return 256
+	if c == nil {
+		return 0
 	}
 
 	return c.Cache.PromptPrefixEntries
 }
 
 func (c *Config) SearchWorkers() int {
-	if c == nil || c.Index.SearchWorkers <= 0 {
-		return 4
+	if c == nil {
+		return 0
 	}
 
 	return c.Index.SearchWorkers
@@ -509,7 +386,7 @@ func (c *Config) SearchWorkers() int {
 
 func (c *Config) HistoryMaxMessages() int {
 	if c == nil {
-		return 40
+		return 0
 	}
 
 	for _, r := range c.Runners {
@@ -525,11 +402,7 @@ func (c *Config) HistoryMaxMessages() int {
 		}
 	}
 
-	if c.Chat.HistoryMaxMessages > 0 {
-		return c.Chat.HistoryMaxMessages
-	}
-
-	return 40
+	return c.Chat.HistoryMaxMessages
 }
 
 func (c *Config) PersistentQueueEnabled() bool {
@@ -541,5 +414,22 @@ func (c *Config) QdrantEnabled() bool {
 }
 
 func (c *Config) SandboxEnabled() bool {
-	return c != nil && c.Agent.Sandbox.Enabled && strings.TrimSpace(c.Agent.Sandbox.WorkspaceRoot) != ""
+	if c == nil {
+		return false
+	}
+
+	enabled := true
+	if c.Agent.Sandbox.Enabled != nil {
+		enabled = *c.Agent.Sandbox.Enabled
+	}
+
+	return enabled && strings.TrimSpace(c.Agent.Sandbox.WorkspaceRoot) != ""
+}
+
+func (c *Config) StructuredLogging() bool {
+	if c == nil || c.Logging.Structured == nil {
+		return false
+	}
+
+	return *c.Logging.Structured
 }

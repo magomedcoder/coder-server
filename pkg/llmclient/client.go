@@ -186,6 +186,40 @@ func (s *Service) SendMessage(
 	return forwardWithQueueRelease(ch, s.queue), nil
 }
 
+func (s *Service) SendMessageOnRunner(
+	ctx context.Context,
+	runnerAddr string,
+	messages []*gendomain.Message,
+	stopSequences []string,
+	timeoutSeconds int32,
+	genParams *gendomain.GenerationParams,
+) (chan gendomain.LLMStreamChunk, error) {
+	if s == nil || s.llm == nil {
+		return nil, fmt.Errorf("pool не инициализирован")
+	}
+
+	addr := strings.TrimSpace(runnerAddr)
+	if addr == "" {
+		return nil, fmt.Errorf("runner address пуст")
+	}
+
+	if s.queue != nil {
+		if err := s.queue.Acquire(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	ch, err := s.llm.SendMessageOnRunner(ctx, addr, messages, stopSequences, timeoutSeconds, genParams)
+	if err != nil {
+		if s.queue != nil {
+			s.queue.Release()
+		}
+		return nil, mapPoolError(err)
+	}
+
+	return forwardWithQueueRelease(ch, s.queue), nil
+}
+
 func forwardWithQueueRelease(in <-chan gendomain.LLMStreamChunk, q *requestqueue.Queue) chan gendomain.LLMStreamChunk {
 	out := make(chan gendomain.LLMStreamChunk, 100)
 	go func() {

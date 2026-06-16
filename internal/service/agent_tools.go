@@ -13,6 +13,9 @@ var agentToolNames = map[string]struct{}{
 	"search_content": {},
 	"apply_patch":    {},
 	"create_file":    {},
+	"edit_file":      {},
+	"rename_file":    {},
+	"delete_file":    {},
 	"run_command":    {},
 }
 

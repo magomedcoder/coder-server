@@ -11,11 +11,12 @@ type ServerConfig struct {
 }
 
 type ToolInfo struct {
-	Alias       string `json:"alias"`
-	ServerID    int64  `json:"server_id"`
-	ServerName  string `json:"server_name"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	Alias          string `json:"alias"`
+	ServerID       int64  `json:"server_id"`
+	ServerName     string `json:"server_name"`
+	Name           string `json:"name"`
+	Description    string `json:"description,omitempty"`
+	ParametersJSON string `json:"-"`
 }
 
 type CallRequest struct {

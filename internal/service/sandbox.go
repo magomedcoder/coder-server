@@ -22,7 +22,12 @@ type CommandSandbox struct {
 }
 
 func NewCommandSandbox(cfg config.AgentSandboxConfig, allowed []string) *CommandSandbox {
-	if !cfg.Enabled || strings.TrimSpace(cfg.WorkspaceRoot) == "" {
+	enabled := true
+	if cfg.Enabled != nil {
+		enabled = *cfg.Enabled
+	}
+
+	if !enabled || strings.TrimSpace(cfg.WorkspaceRoot) == "" {
 		return nil
 	}
 

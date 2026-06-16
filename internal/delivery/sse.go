@@ -6,12 +6,23 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/service"
 	gendomain "github.com/magomedcoder/gen/pkg/domain"
 )
 
-func writeRunnerSSE(ctx context.Context, w http.ResponseWriter, chunks <-chan gendomain.LLMStreamChunk, streams *ActiveStreams, session *service.StreamSession, metrics *service.Metrics, quota *service.TokenQuota) {
+func writeRunnerSSE(
+	ctx context.Context,
+	w http.ResponseWriter,
+	chunks <-chan gendomain.LLMStreamChunk,
+	streams *ActiveStreams,
+	session *service.StreamSession,
+	metrics *service.Metrics,
+	quota *service.TokenQuota,
+	sessionID string,
+	onComplete func(content string),
+) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -32,6 +43,7 @@ func writeRunnerSSE(ctx context.Context, w http.ResponseWriter, chunks <-chan ge
 
 	eventID := 0
 	var usage *gendomain.StreamTokenUsage
+	var full strings.Builder
 
 	emit := func(event, data string) {
 		eventID++
@@ -55,6 +67,9 @@ func writeRunnerSSE(ctx context.Context, w http.ResponseWriter, chunks <-chan ge
 		case chunk, ok := <-chunks:
 			if !ok {
 				endData := map[string]any{"finish": "stop"}
+				if sessionID != "" {
+					endData["session_id"] = sessionID
+				}
 				if usage != nil {
 					endData["usage"] = map[string]int32{
 						"prompt_tokens":     usage.PromptTokens,
@@ -70,6 +85,9 @@ func writeRunnerSSE(ctx context.Context, w http.ResponseWriter, chunks <-chan ge
 				}
 				raw, _ := json.Marshal(endData)
 				emit("end", string(raw))
+				if onComplete != nil {
+					onComplete(full.String())
+				}
 				if session != nil {
 					session.MarkDone()
 				}
@@ -87,6 +105,7 @@ func writeRunnerSSE(ctx context.Context, w http.ResponseWriter, chunks <-chan ge
 				continue
 			}
 
+			full.WriteString(chunk.Content)
 			delta, _ := json.Marshal(map[string]string{"text": chunk.Content})
 			emit("delta", string(delta))
 		}

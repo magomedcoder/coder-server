@@ -55,7 +55,7 @@ func WithMiddleware(cfg *config.Config, streams *ActiveStreams, metrics *service
 		if metrics != nil {
 			metrics.RecordRequest(durationMs)
 		}
-		if cfg != nil && cfg.Logging.Structured {
+		if cfg != nil && cfg.StructuredLogging() {
 			log.Printf(`{"request_id":%q,"method":%q,"path":%q,"duration_ms":%d,"active_streams":%d}`,
 				requestID, r.Method, r.URL.Path, durationMs, streams.Count())
 		} else {

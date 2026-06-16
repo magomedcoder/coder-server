@@ -14,6 +14,8 @@ type Handler struct {
 	llm           *service.LLMRunnerService
 	agent         *service.AgentService
 	chat          *service.ChatService
+	chatSessions  *service.ChatSessionStore
+	chatMCPLoop   *service.ChatMCPLoop
 	index         *service.RepoIndex
 	quota         *service.TokenQuota
 	idempotency   *service.IdempotencyStore
@@ -26,12 +28,14 @@ type Handler struct {
 	metrics       *service.Metrics
 }
 
-func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, chat *service.ChatService, index *service.RepoIndex, quota *service.TokenQuota, idempotency *service.IdempotencyStore, prefixCache *contextbuilder.PrefixCache, mcp *service.MCPRegistry, testSuggest *service.TestSuggestService, jobs *service.JobStore, sandbox *service.CommandSandbox, streams *ActiveStreams, metrics *service.Metrics) *Handler {
+func NewHandler(cfg *config.Config, llm *service.LLMRunnerService, agent *service.AgentService, chat *service.ChatService, chatSessions *service.ChatSessionStore, chatMCPLoop *service.ChatMCPLoop, index *service.RepoIndex, quota *service.TokenQuota, idempotency *service.IdempotencyStore, prefixCache *contextbuilder.PrefixCache, mcp *service.MCPRegistry, testSuggest *service.TestSuggestService, jobs *service.JobStore, sandbox *service.CommandSandbox, streams *ActiveStreams, metrics *service.Metrics) *Handler {
 	return &Handler{
 		cfg:           cfg,
 		llm:           llm,
 		agent:         agent,
 		chat:          chat,
+		chatSessions:  chatSessions,
+		chatMCPLoop:   chatMCPLoop,
 		index:         index,
 		quota:         quota,
 		idempotency:   idempotency,
@@ -61,6 +65,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/v1/search", h.handleSearch)
 	mux.HandleFunc("/v1/chat", h.handleChat)
 	mux.HandleFunc("/v1/chat/stream", h.handleChatStream)
+	mux.HandleFunc("/v1/chat/sessions/", h.handleChatSession)
 	mux.HandleFunc("/v1/complete", h.handleComplete)
 	mux.HandleFunc("/v1/edit", h.handleEdit)
 	mux.HandleFunc("/v1/agent/step", h.handleAgentStep)

@@ -8,8 +8,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/magomedcoder/gen/pkg/domain"
 	"github.com/magomedcoder/gen/pkg/mcpclient"
 	mcpdomain "github.com/magomedcoder/gen/pkg/mcpclient/domain"
+	"github.com/magomedcoder/gen/pkg/toolloop"
 )
 
 type Registry struct {
@@ -133,11 +135,12 @@ func (r *Registry) Refresh(ctx context.Context) error {
 
 		for _, t := range declared {
 			tools = append(tools, ToolInfo{
-				Alias:       mcpclient.ToolAlias(srv.ID, t.Name),
-				ServerID:    srv.ID,
-				ServerName:  srv.Name,
-				Name:        t.Name,
-				Description: strings.TrimSpace(t.Description),
+				Alias:          mcpclient.ToolAlias(srv.ID, t.Name),
+				ServerID:       srv.ID,
+				ServerName:     srv.Name,
+				Name:           t.Name,
+				Description:    strings.TrimSpace(t.Description),
+				ParametersJSON: t.ParametersJSON,
 			})
 		}
 	}
@@ -162,14 +165,31 @@ func (r *Registry) ListTools() []ToolInfo {
 }
 
 func (r *Registry) ToolsPromptBlock() string {
+	return r.ToolsPromptBlockForServers(nil)
+}
+
+func (r *Registry) ToolsPromptBlockForServers(serverIDs []int64) string {
 	tools := r.ListTools()
 	if len(tools) == 0 {
 		return ""
 	}
 
+	allowed := make(map[int64]struct{}, len(serverIDs))
+	for _, id := range serverIDs {
+		if id > 0 {
+			allowed[id] = struct{}{}
+		}
+	}
+	filterAll := len(allowed) == 0
+
 	var b strings.Builder
 	b.WriteString("MCP tools (use exact alias in calls[].tool):\n")
 	for _, t := range tools {
+		if !filterAll {
+			if _, ok := allowed[t.ServerID]; !ok {
+				continue
+			}
+		}
 		line := fmt.Sprintf("- %s (%s on server %q)", t.Alias, t.Name, t.ServerName)
 		if t.Description != "" {
 			line += ": " + t.Description
@@ -251,4 +271,53 @@ func (r *Registry) Call(ctx context.Context, req CallRequest) (string, error) {
 	}
 
 	return mcpclient.CallTool(ctx, srv, toolName, raw, r.toolsCache)
+}
+
+func (r *Registry) GenerationTools(ctx context.Context, serverIDs []int64) ([]domain.Tool, error) {
+	if r == nil {
+		return nil, fmt.Errorf("MCP registry не инициализирован")
+	}
+
+	_ = r.Refresh(ctx)
+	tools := r.ListTools()
+	if len(tools) == 0 {
+		return nil, nil
+	}
+
+	allowed := make(map[int64]struct{}, len(serverIDs))
+	for _, id := range serverIDs {
+		if id > 0 {
+			allowed[id] = struct{}{}
+		}
+	}
+	filterAll := len(allowed) == 0
+
+	allowedNames := make(map[string]struct{})
+	var out []domain.Tool
+	for _, t := range tools {
+		if !filterAll {
+			if _, ok := allowed[t.ServerID]; !ok {
+				continue
+			}
+		}
+
+		n := toolloop.NormalizeToolName(t.Alias)
+		if _, dup := allowedNames[n]; dup {
+			continue
+		}
+		allowedNames[n] = struct{}{}
+
+		desc := strings.TrimSpace(t.Description)
+		if t.ServerName != "" {
+			desc = "[MCP " + t.ServerName + "] " + desc
+		}
+
+		out = append(out, domain.Tool{
+			Name:           t.Alias,
+			Description:    strings.TrimSpace(desc),
+			ParametersJSON: t.ParametersJSON,
+		})
+	}
+
+	return out, nil
 }

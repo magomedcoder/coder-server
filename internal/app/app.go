@@ -44,6 +44,8 @@ func New(cfg *config.Config) (*App, error) {
 	index := service.NewRepoIndex(cfg.SearchWorkers(), qdrant)
 	prefixCache := contextbuilder.NewPrefixCache(cfg.PromptCacheEntries())
 	chat := service.NewChatService(cfg, llm, index, prefixCache)
+	chatSessions := service.NewChatSessionStore(cfg.HistoryMaxMessages())
+	chatMCPLoop := service.NewChatMCPLoop(llm, mcp, 0)
 	agent := service.NewAgentService(llm, cfg, mcp)
 	quota := service.NewTokenQuota(cfg.Quotas.MaxTokensPerDay)
 	idempotency := service.NewIdempotencyStore(cfg.IdempotencyTTL())
@@ -63,7 +65,7 @@ func New(cfg *config.Config) (*App, error) {
 	return &App{
 		cfg:       cfg,
 		llm:       llm,
-		handler:   delivery.NewHandler(cfg, llm, agent, chat, index, quota, idempotency, prefixCache, mcp, testSuggest, jobs, sandbox, streams, metrics),
+		handler:   delivery.NewHandler(cfg, llm, agent, chat, chatSessions, chatMCPLoop, index, quota, idempotency, prefixCache, mcp, testSuggest, jobs, sandbox, streams, metrics),
 		streams:   streams,
 		metrics:   metrics,
 		jobRunner: jobRunner,
