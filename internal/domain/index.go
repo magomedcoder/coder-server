@@ -14,6 +14,7 @@ type IndexSyncRequest struct {
 	WorkspaceID string       `json:"workspace_id"`
 	Upsert      []IndexChunk `json:"upsert,omitempty"`
 	Delete      []string     `json:"delete,omitempty"`
+	KeepIDs     []string     `json:"keep_ids,omitempty"`
 }
 
 type IndexSyncResponse struct {

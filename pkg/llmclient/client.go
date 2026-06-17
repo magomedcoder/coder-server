@@ -165,25 +165,42 @@ func (s *Service) SendMessage(
 	timeoutSeconds int32,
 	genParams *gendomain.GenerationParams,
 ) (chan gendomain.LLMStreamChunk, error) {
+	_, ch, err := s.SendMessageWithMeta(ctx, messages, stopSequences, timeoutSeconds, genParams)
+	return ch, err
+}
+
+// StreamMeta describes runner selection before the first SSE token.
+type StreamMeta struct {
+	RunnerAttempts int
+	RunnerAddr     string
+}
+
+func (s *Service) SendMessageWithMeta(
+	ctx context.Context,
+	messages []*gendomain.Message,
+	stopSequences []string,
+	timeoutSeconds int32,
+	genParams *gendomain.GenerationParams,
+) (StreamMeta, chan gendomain.LLMStreamChunk, error) {
 	if s == nil || s.llm == nil {
-		return nil, fmt.Errorf("pool не инициализирован")
+		return StreamMeta{}, nil, fmt.Errorf("pool не инициализирован")
 	}
 
 	if s.queue != nil {
 		if err := s.queue.Acquire(ctx); err != nil {
-			return nil, err
+			return StreamMeta{}, nil, err
 		}
 	}
 
-	ch, err := s.sendMessageWithRetry(ctx, messages, stopSequences, timeoutSeconds, genParams)
+	meta, ch, err := s.sendMessageWithRetry(ctx, messages, stopSequences, timeoutSeconds, genParams)
 	if err != nil {
 		if s.queue != nil {
 			s.queue.Release()
 		}
-		return nil, err
+		return StreamMeta{}, nil, err
 	}
 
-	return forwardWithQueueRelease(ch, s.queue), nil
+	return meta, forwardWithQueueRelease(ch, s.queue), nil
 }
 
 func (s *Service) SendMessageOnRunner(
@@ -241,15 +258,15 @@ func (s *Service) sendMessageWithRetry(
 	stopSequences []string,
 	timeoutSeconds int32,
 	genParams *gendomain.GenerationParams,
-) (chan gendomain.LLMStreamChunk, error) {
+) (StreamMeta, chan gendomain.LLMStreamChunk, error) {
 	addrs := s.eligibleRunners()
 	if len(addrs) == 0 {
 		ch, err := s.llm.SendMessage(ctx, messages, stopSequences, timeoutSeconds, genParams)
 		if err != nil {
-			return nil, mapPoolError(err)
+			return StreamMeta{}, nil, mapPoolError(err)
 		}
 
-		return ch, nil
+		return StreamMeta{}, ch, nil
 	}
 
 	var lastErr error
@@ -266,7 +283,7 @@ func (s *Service) sendMessageWithRetry(
 				s.breaker.RecordSuccess(addr)
 			}
 
-			return ch, nil
+			return StreamMeta{RunnerAttempts: i, RunnerAddr: addr}, ch, nil
 		}
 
 		lastErr = err
@@ -275,15 +292,15 @@ func (s *Service) sendMessageWithRetry(
 		}
 
 		if ctx.Err() != nil {
-			return nil, ctx.Err()
+			return StreamMeta{}, nil, ctx.Err()
 		}
 	}
 
 	if lastErr != nil {
-		return nil, mapPoolError(lastErr)
+		return StreamMeta{}, nil, mapPoolError(lastErr)
 	}
 
-	return nil, fmt.Errorf("gen-runner недоступен")
+	return StreamMeta{}, nil, fmt.Errorf("gen-runner недоступен")
 }
 
 func (s *Service) eligibleRunners() []string {

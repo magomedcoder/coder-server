@@ -9,12 +9,14 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/service"
+	"github.com/magomedcoder/coder-server/pkg/llmclient"
 	gendomain "github.com/magomedcoder/gen/pkg/domain"
 )
 
 func writeRunnerSSE(
 	ctx context.Context,
 	w http.ResponseWriter,
+	streamMeta llmclient.StreamMeta,
 	chunks <-chan gendomain.LLMStreamChunk,
 	streams *ActiveStreams,
 	session *service.StreamSession,
@@ -56,6 +58,15 @@ func writeRunnerSSE(
 		fmt.Fprintf(w, "event: %s\n", event)
 		fmt.Fprintf(w, "data: %s\n\n", data)
 		flusher.Flush()
+	}
+
+	if streamMeta.RunnerAttempts > 0 {
+		data, _ := json.Marshal(map[string]any{
+			"phase":   "retrying",
+			"attempt": streamMeta.RunnerAttempts + 1,
+			"runner":  streamMeta.RunnerAddr,
+		})
+		emit("status", string(data))
 	}
 
 	for {

@@ -113,7 +113,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ch, err := h.llm.SendMessage(r.Context(), messages, stopSeq, timeout, genParams)
+	streamMeta, ch, err := h.llm.SendMessageWithMeta(r.Context(), messages, stopSeq, timeout, genParams)
 	if err != nil {
 		h.recordChatErr()
 		logReq(requestID, "чат ошибка runner: %v", err)
@@ -132,7 +132,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 			session = reg.Start(requestID)
 		}
 		h.recordChatOK()
-		writeRunnerSSE(r.Context(), w, ch, h.activeStreams, session, h.metrics, h.quota, sessionID, requestID, func(content string) {
+		writeRunnerSSE(r.Context(), w, streamMeta, ch, h.activeStreams, session, h.metrics, h.quota, sessionID, requestID, func(content string) {
 			h.persistChatSession(sessionID, req.Messages, content)
 		})
 		return

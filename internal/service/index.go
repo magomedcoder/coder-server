@@ -93,6 +93,24 @@ func (idx *RepoIndex) Sync(ctx context.Context, llm *LLMRunnerService, req domai
 		qdrantUpserts = append(qdrantUpserts, c)
 	}
 
+	if len(req.KeepIDs) > 0 {
+		keep := make(map[string]struct{}, len(req.KeepIDs))
+		for _, id := range req.KeepIDs {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				keep[id] = struct{}{}
+			}
+		}
+		for id, ch := range bucket {
+			if _, ok := keep[id]; ok {
+				continue
+			}
+			idx.removeGraphLocked(ws, ch.chunk)
+			delete(bucket, id)
+			deletedIDs = append(deletedIDs, id)
+		}
+	}
+
 	if maxChunks > 0 && len(bucket) > maxChunks {
 		count := len(bucket)
 		idx.mu.Unlock()

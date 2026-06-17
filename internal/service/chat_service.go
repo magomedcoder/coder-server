@@ -75,7 +75,7 @@ func EnrichContextFromSearch(ctx context.Context, index *RepoIndex, llm *LLMRunn
 
 	limit := req.Search.Limit
 	if limit <= 0 {
-		limit = 5
+		limit = 8
 	}
 
 	mode := strings.TrimSpace(req.Search.Mode)
