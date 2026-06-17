@@ -26,6 +26,7 @@ func writeChatMCPLoopSSE(
 	quota *service.TokenQuota,
 	onComplete func(content string),
 	sessionID string,
+	requestID string,
 ) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -44,6 +45,8 @@ func writeChatMCPLoopSSE(
 		streams.Inc()
 		defer streams.Dec()
 	}
+
+	logReq(requestID, "SSE MCP-поток запущен")
 
 	eventID := 0
 	emit := func(event, data string) {
@@ -83,9 +86,43 @@ func writeChatMCPLoopSSE(
 		return true
 	}
 
-	content, _, usage, err := loop.Run(ctx, messages, stopSequences, timeout, genParams, serverIDs, onEvent, onChunk)
-	if err != nil {
-		errData, _ := json.Marshal(map[string]string{"message": err.Error()})
+	type loopResult struct {
+		content   string
+		reasoning string
+		usage     *gendomain.StreamTokenUsage
+		err       error
+	}
+
+	done := make(chan loopResult, 1)
+	go func() {
+		content, reasoning, usage, err := loop.Run(
+			ctx,
+			messages,
+			stopSequences,
+			timeout,
+			genParams,
+			serverIDs,
+			requestID,
+			onEvent,
+			onChunk,
+		)
+		done <- loopResult{content, reasoning, usage, err}
+	}()
+
+	var result loopResult
+	select {
+	case <-ctx.Done():
+		logReq(requestID, "SSE MCP отменён клиентом")
+		if session != nil {
+			session.MarkDone()
+		}
+		return
+	case result = <-done:
+	}
+
+	if result.err != nil {
+		logReq(requestID, "SSE MCP ошибка: %v", result.err)
+		errData, _ := json.Marshal(map[string]string{"message": result.err.Error()})
 		emit("error", string(errData))
 		if session != nil {
 			session.MarkDone()
@@ -98,26 +135,32 @@ func writeChatMCPLoopSSE(
 	if sessionID != "" {
 		endData["session_id"] = sessionID
 	}
-	if usage != nil {
+
+	if result.usage != nil {
 		endData["usage"] = map[string]int32{
-			"prompt_tokens":     usage.PromptTokens,
-			"completion_tokens": usage.CompletionTokens,
-			"total_tokens":      usage.TotalTokens,
+			"prompt_tokens":     result.usage.PromptTokens,
+			"completion_tokens": result.usage.CompletionTokens,
+			"total_tokens":      result.usage.TotalTokens,
 		}
 
 		if metrics != nil {
-			metrics.RecordTokens(usage.PromptTokens, usage.CompletionTokens)
+			metrics.RecordTokens(result.usage.PromptTokens, result.usage.CompletionTokens)
 		}
 
 		if quota != nil {
-			quota.Record(int64(usage.PromptTokens) + int64(usage.CompletionTokens))
+			quota.Record(int64(result.usage.PromptTokens) + int64(result.usage.CompletionTokens))
 		}
+
+		logReq(requestID, "SSE MCP завершён символов=%d prompt=%d completion=%d",
+			len(result.content), result.usage.PromptTokens, result.usage.CompletionTokens)
+	} else {
+		logReq(requestID, "SSE MCP завершён символов=%d", len(result.content))
 	}
-	_ = content
-	if onComplete != nil && strings.TrimSpace(content) != "" {
-		onComplete(content)
+
+	if onComplete != nil && strings.TrimSpace(result.content) != "" {
+		onComplete(result.content)
 	}
-	
+
 	raw, _ := json.Marshal(endData)
 	emit("end", string(raw))
 	if session != nil {

@@ -33,17 +33,19 @@ func WithMiddleware(cfg *config.Config, streams *ActiveStreams, metrics *service
 			return
 		}
 
+		requestID := strings.TrimSpace(r.Header.Get("X-Request-ID"))
+		if requestID == "" {
+			requestID = uuid.NewString()
+		}
+
 		if cfg != nil && cfg.AuthEnabled() && !isPublicPath(r.URL.Path) {
 			if !checkAPIKey(r, cfg.APIKey) {
+				logReq(requestID, "отказ: неверный API key path=%s", r.URL.Path)
 				writeJSON(w, http.StatusUnauthorized, domain.NewErrorResponse("unauthorized", "неверный или отсутствующий API key"))
 				return
 			}
 		}
 
-		requestID := strings.TrimSpace(r.Header.Get("X-Request-ID"))
-		if requestID == "" {
-			requestID = uuid.NewString()
-		}
 		w.Header().Set("X-Request-ID", requestID)
 
 		ctx := context.WithValue(r.Context(), requestIDKey{}, requestID)
@@ -56,11 +58,9 @@ func WithMiddleware(cfg *config.Config, streams *ActiveStreams, metrics *service
 			metrics.RecordRequest(durationMs)
 		}
 		if cfg != nil && cfg.StructuredLogging() {
-			log.Printf(`{"request_id":%q,"method":%q,"path":%q,"duration_ms":%d,"active_streams":%d}`,
-				requestID, r.Method, r.URL.Path, durationMs, streams.Count())
+			log.Printf(`{"request_id":%q,"метод":%q,"путь":%q,"длительность_мс":%d,"активных_потоков":%d}`, requestID, r.Method, r.URL.Path, durationMs, streams.Count())
 		} else {
-			log.Printf("request_id=%s method=%s path=%s duration_ms=%d active_streams=%d",
-				requestID, r.Method, r.URL.Path, durationMs, streams.Count())
+			log.Printf("запрос request_id=%s %s %s %d мс активных_потоков=%d", requestID, r.Method, r.URL.Path, durationMs, streams.Count())
 		}
 	})
 }
@@ -102,6 +102,10 @@ func resolveRequestID(ctx context.Context, bodyID *string) string {
 }
 
 func mapRunnerError(w http.ResponseWriter, err error) {
+	if err != nil {
+		log.Printf("runner: %v", err)
+	}
+
 	if errors.Is(err, domain.ErrRunnerModelNotLoaded()) {
 		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", "модель не загружена на gen-runner"))
 		return

@@ -56,20 +56,59 @@ func New(cfg *config.Config) (*App, error) {
 	if cfg.PersistentQueueEnabled() {
 		jobs, err = service.NewJobStore(cfg.Reliability.PersistentQueuePath, cfg.Reliability.PersistentQueueMax)
 		if err != nil {
-			return nil, fmt.Errorf("persistent queue: %w", err)
+			return nil, fmt.Errorf("постоянная очередь: %w", err)
 		}
 	}
 
 	jobRunner := service.NewJobRunner(jobs, llm.RequestQueue(), chat, agent)
 
-	return &App{
+	app := &App{
 		cfg:       cfg,
 		llm:       llm,
 		handler:   delivery.NewHandler(cfg, llm, agent, chat, chatSessions, chatMCPLoop, index, quota, idempotency, prefixCache, mcp, testSuggest, jobs, sandbox, streams, metrics),
 		streams:   streams,
 		metrics:   metrics,
 		jobRunner: jobRunner,
-	}, nil
+	}
+	app.logStartup(mcp, jobs)
+	return app, nil
+}
+
+func (a *App) logStartup(mcp *service.MCPRegistry, jobs *service.JobStore) {
+	if a == nil || a.cfg == nil {
+		return
+	}
+
+	cfg := a.cfg
+	runners := 0
+	for _, r := range cfg.Runners {
+		if r.Enabled == nil || *r.Enabled {
+			runners++
+		}
+	}
+
+	mcpCount := 0
+	if mcp != nil {
+		mcpCount = mcp.ServerCount()
+	}
+
+	log.Printf("инициализация: runners=%d mcp_серверов=%d budget_токенов=%d история=%d moderation=%v auth=%v rate_limit=%v", runners, mcpCount, cfg.ContextTokenBudget(), cfg.HistoryMaxMessages(), cfg.ModerationEnabled(), cfg.AuthEnabled(), cfg.RateLimitEnabled())
+
+	if cfg.Quotas.MaxTokensPerDay > 0 {
+		log.Printf("инициализация: квота токенов/день=%d", cfg.Quotas.MaxTokensPerDay)
+	}
+
+	if cfg.PersistentQueueEnabled() {
+		log.Printf("инициализация: постоянная очередь path=%s max=%d", cfg.Reliability.PersistentQueuePath, cfg.Reliability.PersistentQueueMax)
+	}
+
+	if jobs != nil {
+		log.Printf("инициализация: фоновый обработчик очереди запущен")
+	}
+
+	if cfg.QdrantEnabled() {
+		log.Printf("инициализация: qdrant url=%s", cfg.Index.Qdrant.URL)
+	}
 }
 
 func (a *App) Close() {
@@ -95,6 +134,7 @@ func (a *App) Run() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		a.jobCancel = cancel
 		go a.jobRunner.RunLoop(ctx)
+		log.Println("фоновый цикл очереди задач запущен")
 	}
 
 	mux := http.NewServeMux()
@@ -127,7 +167,7 @@ func (a *App) Run() error {
 	case err := <-errCh:
 		return err
 	case sig := <-sigCh:
-		log.Printf("получен сигнал %v, graceful shutdown...", sig)
+		log.Printf("получен сигнал %v, корректное завершение...", sig)
 		return a.shutdown()
 	}
 }
@@ -151,7 +191,7 @@ func (a *App) shutdown() error {
 	}
 
 	if err := a.server.Shutdown(ctx); err != nil {
-		return fmt.Errorf("shutdown: %w", err)
+		return fmt.Errorf("завершение работы: %w", err)
 	}
 
 	log.Println("coder-server остановлен")

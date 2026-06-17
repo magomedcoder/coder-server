@@ -21,6 +21,7 @@ func writeRunnerSSE(
 	metrics *service.Metrics,
 	quota *service.TokenQuota,
 	sessionID string,
+	requestID string,
 	onComplete func(content string),
 ) {
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -60,6 +61,7 @@ func writeRunnerSSE(
 	for {
 		select {
 		case <-ctx.Done():
+			logReq(requestID, "SSE отменён клиентом символов=%d", full.Len())
 			if session != nil {
 				session.MarkDone()
 			}
@@ -82,6 +84,9 @@ func writeRunnerSSE(
 					if quota != nil {
 						quota.Record(int64(usage.PromptTokens) + int64(usage.CompletionTokens))
 					}
+					logReq(requestID, "SSE завершён символов=%d prompt=%d completion=%d", full.Len(), usage.PromptTokens, usage.CompletionTokens)
+				} else {
+					logReq(requestID, "SSE завершён символов=%d", full.Len())
 				}
 				raw, _ := json.Marshal(endData)
 				emit("end", string(raw))

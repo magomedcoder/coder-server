@@ -39,6 +39,10 @@ func New(servers []ServerConfig) *Registry {
 		reg.servers[srv.ID] = srv
 	}
 
+	if n := len(reg.servers); n > 0 {
+		log.Printf("MCP registry: загружено серверов=%d", n)
+	}
+
 	return reg
 }
 
@@ -84,7 +88,7 @@ func toMCPServerDomain(cfg ServerConfig) *mcpdomain.MCPServer {
 
 	mcpdomain.NormalizeMCPServer(srv)
 	if err := mcpdomain.ValidateMCPServerStructure(srv); err != nil {
-		log.Printf("MCP server %d (%q) пропущен: %v", cfg.ID, name, err)
+		log.Printf("MCP-сервер %d (%q) пропущен: %v", cfg.ID, name, err)
 		return nil
 	}
 

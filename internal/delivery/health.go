@@ -61,7 +61,7 @@ func (h *Handler) writeHealthResponse(w http.ResponseWriter, r *http.Request, in
 		}
 		if hints.MaxContextTokens > 0 {
 			caps.MaxContextTokens = hints.MaxContextTokens
-		} else if budget := h.cfg.ContextTokenBudget(); budget > 0 {
+		} else if budget := h.cfg.EffectiveContextTokenBudget(0); budget > 0 {
 			caps.MaxContextTokens = budget
 		}
 		if _, err := h.llm.Embed(r.Context(), "ping"); err == nil {

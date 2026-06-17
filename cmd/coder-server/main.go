@@ -10,16 +10,16 @@ import (
 func main() {
 	cfg, err := config.Load("config.yaml")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("конфигурация: %v", err)
 	}
 
 	application, err := app.New(cfg)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("инициализация: %v", err)
 	}
 	defer application.Close()
 
 	if err := application.Run(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("сервер: %v", err)
 	}
 }

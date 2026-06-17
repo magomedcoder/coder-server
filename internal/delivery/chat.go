@@ -2,13 +2,14 @@ package delivery
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 
+	"github.com/magomedcoder/coder-server/internal/config"
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
 	"github.com/magomedcoder/coder-server/internal/service"
+	"github.com/magomedcoder/coder-server/pkg/contextbudget"
 	"github.com/magomedcoder/coder-server/pkg/security"
 	gendomain "github.com/magomedcoder/gen/pkg/domain"
 )
@@ -26,9 +27,9 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	requestID := resolveRequestID(r.Context(), req.RequestID)
-	log.Printf("request_id=%s chat stream=%v messages=%d", requestID, req.Stream, len(req.Messages))
 
 	if err := validateChatRequest(req); err != nil {
+		logReq(requestID, "чат отклонён: %v", err)
 		writeBadRequest(w, err.Error())
 		return
 	}
@@ -45,6 +46,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 
 		if security.ScanMessages(texts) {
 			h.recordChatErr()
+			logReq(requestID, "чат отклонён: moderation")
 			writeJSON(w, http.StatusBadRequest, domain.NewErrorResponse("prompt_injection", "запрос отклонён moderation layer"))
 			return
 		}
@@ -52,6 +54,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	if !*req.Stream && requestID != "" && h.idempotency != nil {
 		if status, body, ok := h.idempotency.Get("chat:" + requestID); ok {
+			logReq(requestID, "чат idempotency replay status=%d", status)
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			w.Header().Set("X-Idempotent-Replay", "true")
 			w.WriteHeader(status)
@@ -68,6 +71,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 	estimate := estimateChatTokens(req)
 	if !h.checkTokenQuota(estimate) {
 		h.recordChatErr()
+		logReq(requestID, "чат отклонён: превышена дневная квота токенов estimate=%d", estimate)
 		writeJSON(w, http.StatusTooManyRequests, domain.NewErrorResponse("quota_exceeded", "превышен дневной лимит токенов"))
 		return
 	}
@@ -79,11 +83,14 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.enrichContextFromSearch(r.Context(), &req)
+	tokenBudget := h.cfg.EffectiveContextTokenBudget(h.llm.ChatHints().MaxContextTokens)
 	req.Messages = trimChatHistory(req.Messages, h.cfg.HistoryMaxMessages())
+	req.Messages = trimChatHistoryByTokens(req, tokenBudget, generateMaxTokens(req, h.cfg))
 
 	useMCPTools := h.chatMCPLoop != nil && h.chatMCPLoop.Enabled(r.Context(), req.Session)
+	logReq(requestID, "чат поток=%v сообщ=%d сессия=%s проект=%q файл=%q сниппетов=%d mcp=%v", *req.Stream, len(req.Messages), sessionLabel(sessionID), chatWorkspaceLabel(req), chatEditorPath(req), chatSnippetCount(req), useMCPTools)
 	systemPrompt := h.chatSystemPrompt(req, useMCPTools)
-	messages := mapper.RunnerMessages(systemPrompt, req.Messages, req.Editor, req.Context, h.cfg.ContextTokenBudget(), h.cfg.ContextScanSecrets(), h.prefixCache)
+	messages := mapper.RunnerMessages(systemPrompt, req.Messages, req.Editor, req.Context, tokenBudget, h.cfg.ContextScanSecrets(), h.prefixCache)
 	genParams := mapper.GenerateParams(req.Generate, h.cfg.Chat.Generate)
 	if req.Session != nil && req.Session.Temperature != nil {
 		temp := float32(*req.Session.Temperature)
@@ -109,6 +116,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 	ch, err := h.llm.SendMessage(r.Context(), messages, stopSeq, timeout, genParams)
 	if err != nil {
 		h.recordChatErr()
+		logReq(requestID, "чат ошибка runner: %v", err)
 		if !*req.Stream {
 			h.mapRunnerErrorWithQueue(w, err, "chat", requestID, req)
 			return
@@ -124,7 +132,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 			session = reg.Start(requestID)
 		}
 		h.recordChatOK()
-		writeRunnerSSE(r.Context(), w, ch, h.activeStreams, session, h.metrics, h.quota, sessionID, func(content string) {
+		writeRunnerSSE(r.Context(), w, ch, h.activeStreams, session, h.metrics, h.quota, sessionID, requestID, func(content string) {
 			h.persistChatSession(sessionID, req.Messages, content)
 		})
 		return
@@ -162,6 +170,7 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.recordChatOK()
+	logReq(requestID, "чат готов символов=%d prompt=%v completion=%v", len(assistant), usagePrompt(usage), usageCompletion(usage))
 	if requestID != "" && h.idempotency != nil {
 		if body, err := json.Marshal(resp); err == nil {
 			h.idempotency.Put("chat:"+requestID, http.StatusOK, body)
@@ -192,13 +201,14 @@ func (h *Handler) runChatWithMCPTools(
 
 		writeChatMCPLoopSSE(r.Context(), w, h.chatMCPLoop, messages, stopSeq, timeout, genParams, serverIDs, h.activeStreams, session, h.metrics, h.quota, func(content string) {
 			h.persistChatSession(sessionID, req.Messages, content)
-		}, sessionID)
+		}, sessionID, requestID)
 		return
 	}
 
-	content, reasoning, usageRaw, err := h.chatMCPLoop.Run(r.Context(), messages, stopSeq, timeout, genParams, serverIDs, nil, nil)
+	content, reasoning, usageRaw, err := h.chatMCPLoop.Run(r.Context(), messages, stopSeq, timeout, genParams, serverIDs, requestID, nil, nil)
 	if err != nil {
 		h.recordChatErr()
+		logReq(requestID, "чат MCP ошибка: %v", err)
 		h.mapRunnerErrorWithQueue(w, err, "chat", requestID, req)
 		return
 	}
@@ -223,6 +233,7 @@ func (h *Handler) runChatWithMCPTools(
 	}
 
 	h.recordChatOK()
+	logReq(requestID, "чат MCP готов символов=%d prompt=%v completion=%v", len(content), usagePrompt(mapper.TokenUsage(usageRaw)), usageCompletion(mapper.TokenUsage(usageRaw)))
 	if requestID != "" && h.idempotency != nil {
 		if body, err := json.Marshal(resp); err == nil {
 			h.idempotency.Put("chat:"+requestID, http.StatusOK, body)
@@ -257,22 +268,43 @@ func (h *Handler) handleChatStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lastEventID := parseLastEventID(r)
+	logReq(requestID, "SSE resume last_event_id=%d done=%v", lastEventID, session.IsDone())
 	writeReplaySSE(r.Context(), w, session, lastEventID)
+}
+
+func usagePrompt(u *domain.TokenUsage) any {
+	if u == nil {
+		return "-"
+	}
+
+	return u.PromptTokens
+}
+
+func usageCompletion(u *domain.TokenUsage) any {
+	if u == nil {
+		return "-"
+	}
+
+	return u.CompletionTokens
 }
 
 func validateChatRequest(req domain.ChatRequest) error {
 	if req.Stream == nil {
 		return errValidation("поле stream обязательно")
 	}
+
 	if req.System == nil {
 		return errValidation("поле system обязательно")
 	}
+
 	if len(req.Messages) == 0 {
 		return errValidation("массив messages не должен быть пустым")
 	}
+
 	if req.Messages[len(req.Messages)-1].Role != "user" {
 		return errValidation(`последнее сообщение в messages должно иметь role "user"`)
 	}
+
 	return nil
 }
 
@@ -288,6 +320,86 @@ func trimChatHistory(messages []domain.ChatMessage, max int) []domain.ChatMessag
 	}
 
 	return messages[len(messages)-max:]
+}
+
+func generateMaxTokens(req domain.ChatRequest, cfg *config.Config) int {
+	if req.Generate != nil && req.Generate.MaxTokens != nil && *req.Generate.MaxTokens > 0 {
+		return *req.Generate.MaxTokens
+	}
+
+	if cfg != nil && cfg.Chat.Generate.MaxTokens > 0 {
+		return cfg.Chat.Generate.MaxTokens
+	}
+
+	return 0
+}
+
+func trimChatHistoryByTokens(req domain.ChatRequest, tokenBudget, generateMax int) []domain.ChatMessage {
+	if len(req.Messages) == 0 {
+		return req.Messages
+	}
+
+	systemTokens := 0
+	if req.System != nil {
+		systemTokens = contextbudget.EstimateTokens(strings.TrimSpace(*req.System))
+	}
+
+	contextTokens := estimateContextTokens(req.Editor, req.Context)
+	historyBudget := contextbudget.HistoryTokenBudget(tokenBudget, systemTokens, contextTokens, generateMax)
+
+	lines := make([]contextbudget.ChatLine, len(req.Messages))
+	for i, m := range req.Messages {
+		lines[i] = contextbudget.ChatLine{
+			Role:    m.Role,
+			Content: m.Content,
+		}
+	}
+
+	trimmed, changed := contextbudget.TrimChatLines(lines, historyBudget)
+	if !changed {
+		return req.Messages
+	}
+
+	out := make([]domain.ChatMessage, len(trimmed))
+	for i, line := range trimmed {
+		out[i] = domain.ChatMessage{
+			Role:    line.Role,
+			Content: line.Content,
+		}
+	}
+
+	return out
+}
+
+func estimateContextTokens(editor *domain.EditorContext, ctx *domain.ChatContext) int {
+	total := 0
+	if editor != nil {
+		total += contextbudget.EstimateTokens(editor.Path)
+		total += contextbudget.EstimateTokens(editor.Language)
+		total += contextbudget.EstimateTokens(editor.Snippet)
+	}
+
+	if ctx == nil {
+		return total
+	}
+
+	if sel := ctx.Selection; sel != nil {
+		total += contextbudget.EstimateTokens(sel.Text)
+		total += contextbudget.EstimateTokens(sel.Path)
+	}
+
+	for _, sn := range ctx.Snippets {
+		total += contextbudget.EstimateTokens(sn.Content)
+		total += contextbudget.EstimateTokens(sn.Path)
+	}
+
+	if ws := ctx.Workspace; ws != nil {
+		total += contextbudget.EstimateTokens(ws.Name)
+		total += contextbudget.EstimateTokens(ws.Root)
+		total += contextbudget.EstimateTokens(ws.Branch)
+	}
+
+	return total
 }
 
 func serviceStopSequences(req domain.ChatRequest) []string {
@@ -328,7 +440,7 @@ func (h *Handler) persistChatSession(sessionID string, prior []domain.ChatMessag
 	out := append([]domain.ChatMessage(nil), prior...)
 	if strings.TrimSpace(assistant) != "" {
 		out = append(out, domain.ChatMessage{
-			Role: "assistant",
+			Role:    "assistant",
 			Content: assistant,
 		})
 	}

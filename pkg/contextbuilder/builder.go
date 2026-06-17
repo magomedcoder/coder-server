@@ -5,10 +5,9 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/pkg/context"
+	"github.com/magomedcoder/coder-server/pkg/contextbudget"
 	"github.com/magomedcoder/coder-server/pkg/security"
 )
-
-const approxCharsPerToken = 4
 
 type Builder struct {
 	tokenBudget int
@@ -17,7 +16,7 @@ type Builder struct {
 
 func New(tokenBudget int, scanSecrets bool) *Builder {
 	if tokenBudget <= 0 {
-		tokenBudget = 8192
+		tokenBudget = contextbudget.DefaultTokenBudget
 	}
 
 	return &Builder{
@@ -27,34 +26,33 @@ func New(tokenBudget int, scanSecrets bool) *Builder {
 }
 
 func (b *Builder) Build(system string, editor *context.EditorContext, ctx *context.ChatContext) string {
-	reserved := estimateTokens(system) + 512
-	budget := max(b.tokenBudget-reserved, 256)
+	budget := contextbudget.ContextBudgetAfterReserve(b.tokenBudget, contextbudget.EstimateTokens(system))
 
 	var parts []contextPart
 
 	if ctx != nil {
 		if ws := workspacePrompt(ctx.Workspace); ws != "" {
 			parts = append(parts, contextPart{
-				priority: 10,
+				priority: contextbudget.PriorityWorkspace,
 				text:     ws,
-				tokens:   estimateTokens(ws),
+				tokens:   contextbudget.EstimateTokens(ws),
 			})
 		}
 
 		if sel := selectionPrompt(ctx.Selection); sel != "" {
 			parts = append(parts, contextPart{
-				priority: 0,
+				priority: contextbudget.PrioritySelection,
 				text:     sel,
-				tokens:   estimateTokens(sel),
+				tokens:   contextbudget.EstimateTokens(sel),
 			})
 		}
 
 		for _, sn := range ctx.Snippets {
 			if p := snippetPrompt(sn); p != "" {
-				priority := snippetPriority(sn.Source)
+				priority := contextbudget.SnippetPriority(sn.Source)
 				parts = append(parts, contextPart{
 					priority: priority,
-					text:     p, tokens: estimateTokens(p),
+					text:     p, tokens: contextbudget.EstimateTokens(p),
 				})
 			}
 		}
@@ -63,16 +61,16 @@ func (b *Builder) Build(system string, editor *context.EditorContext, ctx *conte
 			parts = append(parts, contextPart{
 				priority: 4,
 				text:     tree,
-				tokens:   estimateTokens(tree),
+				tokens:   contextbudget.EstimateTokens(tree),
 			})
 		}
 	}
 
 	if ed := editorContextPrompt(editor); ed != "" {
 		parts = append(parts, contextPart{
-			priority: 1,
+			priority: contextbudget.PriorityEditor,
 			text:     ed,
-			tokens:   estimateTokens(ed),
+			tokens:   contextbudget.EstimateTokens(ed),
 		})
 	}
 
@@ -80,7 +78,7 @@ func (b *Builder) Build(system string, editor *context.EditorContext, ctx *conte
 	var selected []string
 	for _, p := range sortContextParts(parts) {
 		if used+p.tokens > budget {
-			trimmed := trimToTokenBudget(p.text, budget-used)
+			trimmed := contextbudget.TrimToTokenBudget(p.text, budget-used)
 			if trimmed != "" {
 				selected = append(selected, trimmed)
 			}
@@ -121,52 +119,15 @@ func sortContextParts(parts []contextPart) []contextPart {
 }
 
 func snippetPriority(source string) int {
-	switch strings.ToLower(strings.TrimSpace(source)) {
-	case "selection":
-		return 0
-	case "active_file", "editor", "active":
-		return 1
-	case "mention", "file", "@file":
-		return 2
-	case "auto", "import":
-		return 3
-	case "codebase", "search":
-		return 4
-	case "terminal", "git", "diagnostics":
-		return 5
-	case "folder":
-		return 6
-	default:
-		return 7
-	}
+	return contextbudget.SnippetPriority(source)
 }
 
 func estimateTokens(text string) int {
-	n := len([]rune(text))
-	if n == 0 {
-		return 0
-	}
-
-	tokens := n / approxCharsPerToken
-	if tokens < 1 {
-		return 1
-	}
-
-	return tokens
+	return contextbudget.EstimateTokens(text)
 }
 
 func trimToTokenBudget(text string, budget int) string {
-	if budget <= 0 {
-		return ""
-	}
-
-	maxChars := budget * approxCharsPerToken
-	runes := []rune(text)
-	if len(runes) <= maxChars {
-		return text
-	}
-
-	return string(runes[:maxChars]) + "\n...[truncated]"
+	return contextbudget.TrimToTokenBudget(text, budget)
 }
 
 func workspacePrompt(ws *context.WorkspaceContext) string {

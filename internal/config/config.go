@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/magomedcoder/coder-server/pkg/contextbudget"
 	"github.com/magomedcoder/coder-server/pkg/llmclient"
 	"github.com/magomedcoder/coder-server/pkg/mcpregistry"
 	"github.com/magomedcoder/gen/pkg/llmrunner"
@@ -166,7 +167,6 @@ func Load(path string) (*Config, error) {
 	return c, nil
 }
 
-
 func (c *Config) expandPaths() {
 	if c == nil {
 		return
@@ -212,6 +212,14 @@ func (c *Config) ContextTokenBudget() int {
 	}
 
 	return c.Context.TokenBudget
+}
+
+func (c *Config) EffectiveContextTokenBudget(runnerMax int) int {
+	if c == nil {
+		return contextbudget.DefaultTokenBudget
+	}
+
+	return contextbudget.EffectiveBudget(c.Context.TokenBudget, runnerMax)
 }
 
 func (c *Config) ContextScanSecrets() bool {

@@ -61,9 +61,12 @@ func (h *Handler) tryEnqueueOnOverload(w http.ResponseWriter, kind, requestID st
 
 	jobID, err := h.jobs.Enqueue(kind, requestID, body)
 	if err != nil {
+		logReq(requestID, "очередь: не удалось поставить задачу kind=%s: %v", kind, err)
 		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("overloaded", err.Error()))
 		return true
 	}
+
+	logReq(requestID, "очередь: задача %s kind=%s", jobID, kind)
 
 	writeJSON(w, http.StatusAccepted, domain.QueueJobStatus{
 		JobID:     jobID,

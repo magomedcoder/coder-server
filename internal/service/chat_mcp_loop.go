@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -61,6 +62,7 @@ func (l *ChatMCPLoop) Run(
 	timeoutSeconds int32,
 	genParams *gendomain.GenerationParams,
 	serverIDs []int64,
+	requestID string,
 	onEvent func(ChatToolEvent),
 	onChunk func(gendomain.LLMStreamChunk) bool,
 ) (content, reasoning string, usage *gendomain.StreamTokenUsage, err error) {
@@ -89,12 +91,20 @@ func (l *ChatMCPLoop) Run(
 	executor := &mcpChatExecutor{mcp: l.mcp}
 
 	emitTool := func(ev ChatToolEvent) {
+		if requestID != "" {
+			log.Printf("request_id=%s mcp_tool этап=%s инструмент=%s успех=%v", requestID, ev.Phase, ev.Tool, ev.OK)
+		}
+
 		if onEvent != nil {
 			onEvent(ev)
 		}
 	}
 
 	for round := 0; round < l.maxRounds; round++ {
+		if err := ctx.Err(); err != nil {
+			return "", reasoning, usage, err
+		}
+
 		ch, sendErr := l.llm.SendMessageOnRunner(ctx, runnerAddr, history, stopSequences, timeoutSeconds, toolloop.RunnerInferenceParams(gp, history))
 		if sendErr != nil {
 			return "", "", usage, sendErr
@@ -182,7 +192,7 @@ func (l *ChatMCPLoop) Run(
 
 				emitTool(ChatToolEvent{
 					Phase: "start",
-					Tool: call.ResolvedName,
+					Tool:  call.ResolvedName,
 				})
 				toolCtx, cancelTool := context.WithTimeout(loopCtx, toolloop.ToolExecutionDuration(timeoutSeconds))
 				defer cancelTool()
@@ -197,7 +207,7 @@ func (l *ChatMCPLoop) Run(
 					Text:  truncateToolPreview(res),
 				})
 				if execErr != nil {
-					log.Printf("MCP chat tool %q: %v", call.ResolvedName, execErr)
+					log.Printf("request_id=%s mcp_tool инструмент=%q ошибка=%v", requestID, call.ResolvedName, execErr)
 					abortTools()
 				}
 			}(i, call)
@@ -208,7 +218,8 @@ func (l *ChatMCPLoop) Run(
 		toolResults := make([]string, len(execCalls))
 		for i, call := range execCalls {
 			if outcomes[i].err != nil {
-				toolResults[i] = toolloop.ErrorToolMessage(call, outcomes[i].err, outcomes[i].res, false)
+				timedOut := errors.Is(outcomes[i].err, context.DeadlineExceeded)
+				toolResults[i] = toolloop.ErrorToolMessage(call, outcomes[i].err, outcomes[i].res, timedOut)
 				continue
 			}
 
@@ -265,7 +276,7 @@ func (e *mcpChatExecutor) Execute(ctx context.Context, call toolloop.ExecutableT
 			return "", fmt.Errorf("arguments: %w", err)
 		}
 	}
-	
+
 	if args == nil {
 		args = map[string]any{}
 	}

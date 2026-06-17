@@ -49,12 +49,16 @@ func (h *Handler) handleIndexSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	requestID := RequestIDFromContext(r.Context())
+	incoming := len(req.Upsert)
 	count, err := h.index.Sync(r.Context(), h.llm, req, h.cfg.MaxIndexChunks())
 	if err != nil {
+		logReq(requestID, "индекс sync workspace=%s ошибка: %v", req.WorkspaceID, err)
 		writeBadRequest(w, err.Error())
 		return
 	}
 
+	logReq(requestID, "индекс sync workspace=%s входящих=%d сохранено=%d", req.WorkspaceID, incoming, count)
 	writeJSON(w, http.StatusOK, domain.IndexSyncResponse{Chunks: count})
 }
 
@@ -80,8 +84,10 @@ func (h *Handler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	requestID := RequestIDFromContext(r.Context())
 	resp, err := h.index.Search(r.Context(), h.llm, req)
 	if err != nil {
+		logReq(requestID, "поиск workspace=%s query=%q ошибка: %v", req.WorkspaceID, logPreview(req.Query, 60), err)
 		h.mapRunnerError(w, err)
 		return
 	}
@@ -90,5 +96,6 @@ func (h *Handler) handleSearch(w http.ResponseWriter, r *http.Request) {
 		resp.Hits = []domain.SearchHit{}
 	}
 
+	logReq(requestID, "поиск workspace=%s query=%q mode=%s hits=%d", req.WorkspaceID, logPreview(req.Query, 60), req.Mode, len(resp.Hits))
 	writeJSON(w, http.StatusOK, resp)
 }

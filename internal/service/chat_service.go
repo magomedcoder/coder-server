@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/config"
@@ -88,9 +89,15 @@ func EnrichContextFromSearch(ctx context.Context, index *RepoIndex, llm *LLMRunn
 		Limit:       limit,
 		Mode:        mode,
 	})
-	if err != nil || len(resp.Hits) == 0 {
+	if err != nil {
+		log.Printf("контекст search workspace=%s query=%q ошибка: %v", ws, previewLog(query, 60), err)
 		return
 	}
+	if len(resp.Hits) == 0 {
+		return
+	}
+
+	log.Printf("контекст search workspace=%s query=%q hits=%d mode=%s", ws, previewLog(query, 60), len(resp.Hits), mode)
 
 	if req.Context == nil {
 		req.Context = &domain.ChatContext{}
@@ -125,6 +132,17 @@ func stopSequences(req domain.ChatRequest) []string {
 	}
 
 	return req.Session.StopSequences
+}
+
+func previewLog(s string, max int) string {
+	s = strings.TrimSpace(s)
+	s = strings.ReplaceAll(s, "\n", " ")
+	rs := []rune(s)
+	if len(rs) <= max {
+		return s
+	}
+
+	return string(rs[:max]) + "..."
 }
 
 func chatTimeout(req domain.ChatRequest, cfg *config.Config) int32 {

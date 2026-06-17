@@ -22,8 +22,11 @@ func (h *Handler) handleAgentStep(w http.ResponseWriter, r *http.Request) {
 	}
 
 	requestID := resolveRequestID(r.Context(), optionalString(req.RequestID))
+	logReq(requestID, "agent шаг session=%s goal=%q наблюдений=%d", sessionLabel(req.SessionID), logPreview(req.Goal, 120), len(req.Observations))
+
 	if requestID != "" && h.idempotency != nil {
 		if status, body, ok := h.idempotency.Get("agent:" + requestID); ok {
+			logReq(requestID, "agent idempotency replay status=%d", status)
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			w.Header().Set("X-Idempotent-Replay", "true")
 			w.WriteHeader(status)
@@ -46,6 +49,7 @@ func (h *Handler) handleAgentStep(w http.ResponseWriter, r *http.Request) {
 		}
 		if security.ScanMessages(texts) {
 			h.recordAgentErr()
+			logReq(requestID, "agent отклонён: moderation")
 			writeJSON(w, http.StatusBadRequest, domain.NewErrorResponse("prompt_injection", "запрос отклонён moderation layer"))
 			return
 		}
@@ -58,11 +62,13 @@ func (h *Handler) handleAgentStep(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.agent.Step(r.Context(), req)
 	if err != nil {
 		h.recordAgentErr()
+		logReq(requestID, "agent ошибка runner: %v", err)
 		h.mapRunnerErrorWithQueue(w, err, "agent_step", requestID, req)
 		return
 	}
 
 	h.recordAgentOK()
+	logReq(requestID, "agent ответ шаг=%d finish=%v tools=%d blocked=%d", resp.Step, resp.Finish, len(resp.Calls), len(resp.Blocked))
 	if requestID != "" && h.idempotency != nil {
 		if body, err := json.Marshal(resp); err == nil {
 			h.idempotency.Put("agent:"+requestID, http.StatusOK, body)
