@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/gen/pkg/toolloop"
+	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/toolloop"
 )
 
 type memStore struct {

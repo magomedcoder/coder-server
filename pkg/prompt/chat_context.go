@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/magomedcoder/gen/pkg/document"
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/document"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 const DocumentTruncatedNotice = "Внимание: из-за ограничения длины контекста показана только начальная часть файла."

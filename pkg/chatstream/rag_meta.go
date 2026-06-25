@@ -6,8 +6,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/gen/pkg/rag"
+	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/rag"
 )
 
 const (

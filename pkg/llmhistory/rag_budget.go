@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 func EffectiveMaxRAGContextRunes(maxContextTokens int, runesCeiling int, systemAndHistory []*domain.Message, userMessage string) int {

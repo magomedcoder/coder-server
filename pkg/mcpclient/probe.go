@@ -3,7 +3,7 @@ package mcpclient
 import (
 	"context"
 	"errors"
-	"github.com/magomedcoder/gen/pkg/mcpclient/domain"
+	"github.com/magomedcoder/lmpkg/mcpclient/domain"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

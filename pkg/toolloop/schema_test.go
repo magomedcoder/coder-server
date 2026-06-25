@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 func TestTopLevelAllowedPropertyNames_strictFalse(t *testing.T) {

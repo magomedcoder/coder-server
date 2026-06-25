@@ -3,7 +3,7 @@ package chatstream
 import (
 	"testing"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 func msg(role domain.MessageRole, id int64, content, toolCallsJSON string) *domain.Message {

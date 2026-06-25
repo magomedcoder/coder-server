@@ -4,7 +4,7 @@ import (
 	"context"
 	"sort"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 const NeighborOnlyChunkScore = -1e9

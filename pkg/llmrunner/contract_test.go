@@ -3,7 +3,7 @@ package llmrunner
 import (
 	"testing"
 
-	"github.com/magomedcoder/gen-runner/pb/llmrunnerpb"
+	"github.com/magomedcoder/lm-runner/pb/llmrunnerpb"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 

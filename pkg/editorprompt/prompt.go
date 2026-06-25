@@ -1,35 +1,46 @@
 package editorprompt
 
-import (
-	"fmt"
+import "fmt"
 
-	"github.com/magomedcoder/gen/api/pb/editorpb"
+type TransformType int
+
+const (
+	TransformUnspecified TransformType = iota
+	TransformFix
+	TransformImprove
+	TransformBeautify
+	TransformParaphrase
+	TransformShorten
+	TransformSimplify
+	TransformMakeComplex
+	TransformMoreFormal
+	TransformMoreCasual
 )
 
 func WrapUserText(text string) string {
 	return "Текст:\n\n```\n" + text + "\n```"
 }
 
-func BuildSystemPrompt(t editorpb.TransformType, preserveMarkdown bool) string {
+func BuildSystemPrompt(t TransformType, preserveMarkdown bool) string {
 	action := "улучши текст"
 	switch t {
-	case editorpb.TransformType_TRANSFORM_TYPE_FIX:
+	case TransformFix:
 		action = "исправь орфографию, пунктуацию и грамматику"
-	case editorpb.TransformType_TRANSFORM_TYPE_IMPROVE:
+	case TransformImprove:
 		action = "улучши текст: сделай яснее, логичнее и читабельнее, не меняя смысл"
-	case editorpb.TransformType_TRANSFORM_TYPE_BEAUTIFY:
+	case TransformBeautify:
 		action = "сделай текст более красивым и выразительным, сохраняя смысл"
-	case editorpb.TransformType_TRANSFORM_TYPE_PARAPHRASE:
+	case TransformParaphrase:
 		action = "перефразируй (другими словами), сохраняя смысл"
-	case editorpb.TransformType_TRANSFORM_TYPE_SHORTEN:
+	case TransformShorten:
 		action = "сократи текст, сохранив ключевой смысл и факты"
-	case editorpb.TransformType_TRANSFORM_TYPE_SIMPLIFY:
+	case TransformSimplify:
 		action = "упрости текст: сделай проще и понятнее, без потери смысла"
-	case editorpb.TransformType_TRANSFORM_TYPE_MAKE_COMPLEX:
+	case TransformMakeComplex:
 		action = "сделай текст более сложным/профессиональным: добавь точности и терминов, сохраняя смысл"
-	case editorpb.TransformType_TRANSFORM_TYPE_MORE_FORMAL:
+	case TransformMoreFormal:
 		action = "перепиши в более формальном стиле"
-	case editorpb.TransformType_TRANSFORM_TYPE_MORE_CASUAL:
+	case TransformMoreCasual:
 		action = "перепиши в разговорном стиле"
 	default:
 		action = "улучши текст"

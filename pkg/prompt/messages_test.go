@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 func TestFormatContentForRunner_toolRole(t *testing.T) {

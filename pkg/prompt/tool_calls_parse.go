@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"strings"
 
-	runnertemplate "github.com/magomedcoder/gen-runner/template"
+	"github.com/magomedcoder/lm-runner/template"
 )
 
-func parseToolCallsJSON(raw string) ([]runnertemplate.ToolCall, error) {
+func parseToolCallsJSON(raw string) ([]template.ToolCall, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil, nil
@@ -25,11 +25,11 @@ func parseToolCallsJSON(raw string) ([]runnertemplate.ToolCall, error) {
 		return nil, err
 	}
 
-	out := make([]runnertemplate.ToolCall, 0, len(rawCalls))
+	out := make([]template.ToolCall, 0, len(rawCalls))
 	for i, rc := range rawCalls {
-		tc := runnertemplate.ToolCall{
+		tc := template.ToolCall{
 			ID: rc.ID,
-			Function: runnertemplate.ToolCallFunction{
+			Function: template.ToolCallFunction{
 				Index: i,
 				Name:  strings.TrimSpace(rc.Function.Name),
 			},

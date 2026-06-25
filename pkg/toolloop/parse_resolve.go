@@ -9,12 +9,12 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/gen/pkg/chatstream"
-	"github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/gen/pkg/llmrunner"
-	"github.com/magomedcoder/gen/pkg/logger"
-	"github.com/magomedcoder/gen/pkg/mcpclient"
-	"github.com/magomedcoder/gen/pkg/prompt"
+	"github.com/magomedcoder/lmpkg/chatstream"
+	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/llmrunner"
+	"github.com/magomedcoder/lmpkg/logger"
+	"github.com/magomedcoder/lmpkg/mcpclient"
+	"github.com/magomedcoder/lmpkg/prompt"
 )
 
 func SamplingGenParamsForMCP(gp *domain.GenerationParams) *domain.GenerationParams {

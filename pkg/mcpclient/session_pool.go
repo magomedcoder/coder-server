@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/magomedcoder/gen/pkg/mcpclient/domain"
+	"github.com/magomedcoder/lmpkg/mcpclient/domain"
 
-	"github.com/magomedcoder/gen/pkg/logger"
+	"github.com/magomedcoder/lmpkg/logger"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 const (

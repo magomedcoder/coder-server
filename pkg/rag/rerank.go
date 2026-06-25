@@ -28,7 +28,7 @@ func TrimPassageForRerank(s string, maxRunes int) string {
 	}
 
 	r := []rune(s)
-	return string(r[:maxRunes]) + "…"
+	return string(r[:maxRunes]) + "..."
 }
 
 func ParseRerankOrder(reply string, n int) []int {

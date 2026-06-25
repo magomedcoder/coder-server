@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/gen/pkg/document"
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/document"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 const HistoryTruncatedClientNotice = "Часть более старой переписки не передана модели из-за лимита оценки токенов."
@@ -227,7 +227,7 @@ func truncateRunes(s string, maxRunes int) string {
 		return s
 	}
 
-	return string(r[:maxRunes]) + "\n…"
+	return string(r[:maxRunes]) + "\n..."
 }
 
 func BuildDroppedDialoguePlainText(msgs []*domain.Message, maxRunes int) string {

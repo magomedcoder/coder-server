@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	runnertemplate "github.com/magomedcoder/gen-runner/template"
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lm-runner/template"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 const sampleChatMLJinja = `{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}`
@@ -39,7 +39,7 @@ func TestRenderMatchedPreset_sameAsBuildChatPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	preset, err := runnertemplate.Named(strings.TrimSpace(sampleChatMLJinja))
+	preset, err := template.Named(strings.TrimSpace(sampleChatMLJinja))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,7 +3,7 @@ package llmhistory
 import (
 	"strings"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 func FilterHistoryForLLM(messages []*domain.Message) []*domain.Message {

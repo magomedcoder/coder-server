@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/magomedcoder/gen/pkg/chatstream"
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/chatstream"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 func TestExtractLeadingJSONArray(t *testing.T) {

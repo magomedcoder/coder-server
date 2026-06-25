@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/gen/pkg/mcpclient"
+	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/mcpclient"
 )
 
 func TestEnrichSystemMessage_includesCatalogAndInvocation(t *testing.T) {

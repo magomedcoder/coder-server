@@ -2,12 +2,12 @@ package rag
 
 import (
 	"fmt"
-	"github.com/magomedcoder/gen/pkg/prompt"
+	"github.com/magomedcoder/lmpkg/prompt"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 func ragFragmentHeadingSuffix(meta map[string]any) string {

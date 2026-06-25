@@ -3,7 +3,7 @@ package mcpclient
 import (
 	"context"
 	"encoding/json"
-	"github.com/magomedcoder/gen/pkg/mcpclient/domain"
+	"github.com/magomedcoder/lmpkg/mcpclient/domain"
 	"os"
 	"strings"
 	"testing"

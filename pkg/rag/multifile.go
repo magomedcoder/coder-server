@@ -4,8 +4,8 @@ import (
 	"sort"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/gen/pkg/prompt"
+	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/prompt"
 )
 
 const (

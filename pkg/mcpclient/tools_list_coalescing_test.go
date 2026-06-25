@@ -2,7 +2,7 @@ package mcpclient
 
 import (
 	"context"
-	"github.com/magomedcoder/gen/pkg/mcpclient/domain"
+	"github.com/magomedcoder/lmpkg/mcpclient/domain"
 	"sync"
 	"sync/atomic"
 	"testing"

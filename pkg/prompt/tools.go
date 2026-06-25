@@ -3,8 +3,8 @@ package prompt
 import (
 	"strings"
 
-	"github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/gen/pkg/mcpclient"
+	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/mcpclient"
 )
 
 type SystemToolsOptions struct {

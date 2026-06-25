@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 	"gopkg.in/yaml.v3"
 )
 

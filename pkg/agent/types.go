@@ -3,9 +3,9 @@ package agent
 import (
 	"context"
 
-	"github.com/magomedcoder/gen/pkg/chatstream"
-	"github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/gen/pkg/toolloop"
+	"github.com/magomedcoder/lmpkg/chatstream"
+	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/toolloop"
 )
 
 type ToolExecutor interface {

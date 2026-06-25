@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 type LLMChat interface {

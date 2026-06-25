@@ -3,7 +3,7 @@ package chatstream
 import (
 	"strings"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 type ToolSegment struct {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/magomedcoder/gen/pkg/domain"
+	"github.com/magomedcoder/lmpkg/domain"
 )
 
 func TestBuildMessageWithRAG_deepMapPrefix(t *testing.T) {
