@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/domain"
-	"github.com/magomedcoder/gen/pkg/mcpclient"
+	"github.com/magomedcoder/lmpkg/mcpclient"
 )
 
 type AgentPolicy struct {

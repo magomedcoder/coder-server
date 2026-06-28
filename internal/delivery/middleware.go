@@ -107,7 +107,7 @@ func mapRunnerError(w http.ResponseWriter, err error) {
 	}
 
 	if errors.Is(err, domain.ErrRunnerModelNotLoaded()) {
-		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", "модель не загружена на gen-runner"))
+		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", "модель не загружена на lm-runner"))
 		return
 	}
 	if errors.Is(err, service.ErrQueueTimeout) {
@@ -120,8 +120,8 @@ func mapRunnerError(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", msg))
 		return
 	}
-	if strings.Contains(msg, "gen-runner") || strings.Contains(msg, "раннер") {
-		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", "gen-runner недоступен"))
+	if strings.Contains(msg, "lm-runner") || strings.Contains(msg, "раннер") {
+		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", "lm-runner недоступен"))
 		return
 	}
 	writeJSON(w, http.StatusInternalServerError, domain.NewErrorResponse("internal_error", "ошибка генерации"))
@@ -130,13 +130,13 @@ func mapRunnerError(w http.ResponseWriter, err error) {
 func ensureRunnerReady(ctx context.Context, llm *service.LLMRunnerService, w http.ResponseWriter) bool {
 	ok, err := llm.CheckConnection(ctx)
 	if err != nil || !ok {
-		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", "gen-runner недоступен"))
+		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", "lm-runner недоступен"))
 		return false
 	}
 
 	if err := llm.ModelReady(ctx); err != nil {
 		if errors.Is(err, domain.ErrRunnerModelNotLoaded()) {
-			writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", "модель не загружена на gen-runner"))
+			writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", "модель не загружена на lm-runner"))
 			return false
 		}
 		writeJSON(w, http.StatusServiceUnavailable, domain.NewErrorResponse("service_unavailable", err.Error()))

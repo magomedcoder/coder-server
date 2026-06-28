@@ -11,7 +11,7 @@ import (
 	"github.com/magomedcoder/coder-server/internal/service"
 	"github.com/magomedcoder/coder-server/pkg/contextbudget"
 	"github.com/magomedcoder/coder-server/pkg/security"
-	gendomain "github.com/magomedcoder/gen/pkg/domain"
+	gendomain "github.com/magomedcoder/lmpkg/domain"
 )
 
 func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {

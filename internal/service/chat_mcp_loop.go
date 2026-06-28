@@ -11,8 +11,8 @@ import (
 
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/pkg/mcpregistry"
-	gendomain "github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/gen/pkg/toolloop"
+	gendomain "github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/toolloop"
 )
 
 const defaultChatToolRounds = 5

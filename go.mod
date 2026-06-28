@@ -4,15 +4,16 @@ go 1.26
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/magomedcoder/gen v0.0.0-00010101000000-000000000000
+	github.com/magomedcoder/lmpkg v0.0.0-20260625112613-a72baca6f7bc
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-replace github.com/magomedcoder/gen => ../gen
+//replace github.com/magomedcoder/lmpkg => ../lmpkg
 
 require (
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
+	github.com/magomedcoder/lm-runner v0.0.0-20260625102746-1bce04007990 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.5.0 // indirect
 	github.com/richardlehane/mscfb v1.0.6 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect

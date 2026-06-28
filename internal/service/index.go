@@ -54,6 +54,8 @@ func (idx *RepoIndex) Sync(ctx context.Context, llm *LLMRunnerService, req domai
 		return 0, nil
 	}
 
+	req.Upsert = expandOversizedChunks(req.Upsert)
+
 	idx.mu.Lock()
 
 	bucket, ok := idx.store[ws]
@@ -184,7 +186,7 @@ func (idx *RepoIndex) Search(ctx context.Context, llm *LLMRunnerService, req dom
 	case "semantic":
 		hits = idx.searchSemantic(ctx, llm, chunks, query, limit, ws)
 	default:
-		hits = idx.searchKeyword(chunks, queryTerms, limit)
+		hits = idx.searchKeyword(chunks, queryTerms, query, limit)
 		if mode == "hybrid" && llm != nil {
 			sem := idx.searchSemantic(ctx, llm, chunks, query, limit, ws)
 			hits = mergeHits(hits, sem, limit)
@@ -199,7 +201,7 @@ func (idx *RepoIndex) Search(ctx context.Context, llm *LLMRunnerService, req dom
 	}, nil
 }
 
-func (idx *RepoIndex) searchKeyword(chunks []*indexedChunk, queryTerms map[string]int, limit int) []domain.SearchHit {
+func (idx *RepoIndex) searchKeyword(chunks []*indexedChunk, queryTerms map[string]int, query string, limit int) []domain.SearchHit {
 	type scored struct {
 		chunk *indexedChunk
 		score float64
@@ -208,8 +210,15 @@ func (idx *RepoIndex) searchKeyword(chunks []*indexedChunk, queryTerms map[strin
 
 	for _, ch := range chunks {
 		score := bm25Score(queryTerms, ch.terms, len(ch.chunk.Content))
+		if sym := strings.TrimSpace(ch.chunk.Symbol); sym != "" && symbolQueryMatch(query, sym) {
+			score += 3.0
+		}
 		if score <= 0 {
-			continue
+			if sym := strings.TrimSpace(ch.chunk.Symbol); sym != "" && symbolQueryMatch(query, sym) {
+				score = 2.5
+			} else {
+				continue
+			}
 		}
 
 		list = append(list, scored{
@@ -511,6 +520,16 @@ func removeString(list []string, v string) []string {
 	}
 
 	return out
+}
+
+func symbolQueryMatch(query, symbol string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	s := strings.ToLower(strings.TrimSpace(symbol))
+	if q == "" || s == "" {
+		return false
+	}
+
+	return strings.Contains(s, q) || strings.Contains(q, s)
 }
 
 func hitFromChunk(ch *indexedChunk, score float64) domain.SearchHit {

@@ -9,9 +9,8 @@ import (
 	"github.com/magomedcoder/coder-server/pkg/circuitbreaker"
 	"github.com/magomedcoder/coder-server/pkg/requestqueue"
 	"github.com/magomedcoder/coder-server/pkg/ssestream"
-	gendomain "github.com/magomedcoder/gen/pkg/domain"
-	"github.com/magomedcoder/gen/pkg/llmrunner"
-	"github.com/magomedcoder/gen/pkg/runnerresolve"
+	gendomain "github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/llmrunner"
 )
 
 type Service struct {
@@ -101,7 +100,7 @@ func (s *Service) ModelReady(ctx context.Context) error {
 
 	addrs := s.reg.GetEnabledAddresses()
 	if len(addrs) == 0 {
-		return fmt.Errorf("нет включённых gen-runner")
+		return fmt.Errorf("нет включённых lm-runner")
 	}
 
 	for _, addr := range addrs {
@@ -122,7 +121,7 @@ func (s *Service) ProbeBestRunner(ctx context.Context) (llmrunner.RunnerProbeRes
 		return llmrunner.RunnerProbeResult{}, "", fmt.Errorf("pool не инициализирован")
 	}
 
-	entries := runnerresolve.ListEnabledEntries(ctx, s.reg, s.pool)
+	entries := llmrunner.ListEnabledRunnerEntries(ctx, s.reg, s.pool)
 	for _, entry := range entries {
 		if s.breaker != nil && !s.breaker.Allow(entry.Address) {
 			continue
@@ -147,7 +146,7 @@ func (s *Service) ProbeBestRunner(ctx context.Context) (llmrunner.RunnerProbeRes
 		return probe, entry.Address, nil
 	}
 
-	return llmrunner.RunnerProbeResult{}, "", fmt.Errorf("нет доступных gen-runner")
+	return llmrunner.RunnerProbeResult{}, "", fmt.Errorf("нет доступных lm-runner")
 }
 
 func (s *Service) ChatHints() llmrunner.RunnerCoreHints {
@@ -300,7 +299,7 @@ func (s *Service) sendMessageWithRetry(
 		return StreamMeta{}, nil, mapPoolError(lastErr)
 	}
 
-	return StreamMeta{}, nil, fmt.Errorf("gen-runner недоступен")
+	return StreamMeta{}, nil, fmt.Errorf("lm-runner недоступен")
 }
 
 func (s *Service) eligibleRunners() []string {

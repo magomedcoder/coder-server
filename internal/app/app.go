@@ -36,7 +36,7 @@ func New(cfg *config.Config) (*App, error) {
 	metrics := service.NewMetrics()
 	llm, err := service.NewLLMRunnerService(cfg, metrics)
 	if err != nil {
-		return nil, fmt.Errorf("не удалось инициализировать клиент gen-runner: %w", err)
+		return nil, fmt.Errorf("не удалось инициализировать клиент lm-runner: %w", err)
 	}
 
 	mcp := service.NewMCPRegistry(cfg.MCP)

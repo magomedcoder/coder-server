@@ -12,7 +12,7 @@ import (
 	"github.com/magomedcoder/coder-server/pkg/contextbudget"
 	"github.com/magomedcoder/coder-server/pkg/llmclient"
 	"github.com/magomedcoder/coder-server/pkg/mcpregistry"
-	"github.com/magomedcoder/gen/pkg/llmrunner"
+	"github.com/magomedcoder/lmpkg/llmrunner"
 	"gopkg.in/yaml.v3"
 )
 

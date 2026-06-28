@@ -10,7 +10,7 @@ import (
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
 	"github.com/magomedcoder/coder-server/pkg/contextbuilder"
-	gendomain "github.com/magomedcoder/gen/pkg/domain"
+	gendomain "github.com/magomedcoder/lmpkg/domain"
 )
 
 type ChatService struct {

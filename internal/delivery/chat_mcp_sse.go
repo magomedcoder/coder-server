@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/service"
-	gendomain "github.com/magomedcoder/gen/pkg/domain"
+	gendomain "github.com/magomedcoder/lmpkg/domain"
 )
 
 func writeChatMCPLoopSSE(

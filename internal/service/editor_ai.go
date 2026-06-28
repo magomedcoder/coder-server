@@ -9,7 +9,7 @@ import (
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
 	"github.com/magomedcoder/coder-server/pkg/security"
-	gendomain "github.com/magomedcoder/gen/pkg/domain"
+	gendomain "github.com/magomedcoder/lmpkg/domain"
 )
 
 // const inlineCompleteSystemPromptRu = `Ты - движок inline-дополнения кода. Продолжи код в позиции <CURSOR>. Верни ТОЛЬКО текст для вставки после курсора. Без markdown-ограждений, без пояснений, без повторения уже существующего кода.`

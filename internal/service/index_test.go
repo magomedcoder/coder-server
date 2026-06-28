@@ -79,3 +79,40 @@ func TestRepoIndexKeywordSearch(t *testing.T) {
 		t.Fatalf("неожиданные совпадения: %+v", resp.Hits)
 	}
 }
+
+func TestRepoIndexSymbolSearch(t *testing.T) {
+	idx := NewRepoIndex(4, nil)
+	_, err := idx.Sync(t.Context(), nil, domain.IndexSyncRequest{
+		WorkspaceID: "ws1",
+		Upsert: []domain.IndexChunk{
+			{
+				ID:         "1",
+				Path:       "handlers.rs",
+				Content:    "impl Handler {}",
+				Symbol:     "handle_request",
+				SymbolType: "function",
+			},
+		},
+	}, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := idx.Search(t.Context(), nil, domain.SearchRequest{
+		WorkspaceID: "ws1",
+		Query:       "handle_request",
+		Limit:       5,
+		Mode:        "keyword",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(resp.Hits) == 0 {
+		t.Fatal("ожидался hit по symbol")
+	}
+
+	if resp.Hits[0].Symbol != "handle_request" {
+		t.Fatalf("symbol=%q", resp.Hits[0].Symbol)
+	}
+}

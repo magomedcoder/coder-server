@@ -10,7 +10,7 @@ import (
 
 	"github.com/magomedcoder/coder-server/internal/service"
 	"github.com/magomedcoder/coder-server/pkg/llmclient"
-	gendomain "github.com/magomedcoder/gen/pkg/domain"
+	gendomain "github.com/magomedcoder/lmpkg/domain"
 )
 
 func writeRunnerSSE(

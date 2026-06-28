@@ -8,7 +8,7 @@ import (
 
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
-	gendomain "github.com/magomedcoder/gen/pkg/domain"
+	gendomain "github.com/magomedcoder/lmpkg/domain"
 )
 
 type TestSuggestService struct {
