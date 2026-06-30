@@ -1,0 +1,322 @@
+package mcpclient
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"sync/atomic"
+	"unicode/utf8"
+
+	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/logger"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+const (
+	maxSamplingTokens     int32 = 8192
+	maxSamplingReplyRunes       = 64000
+)
+
+var samplingEnabled atomic.Bool
+
+func SetSamplingEnabled(v bool) {
+	samplingEnabled.Store(v)
+}
+
+func SamplingEnabled() bool {
+	return samplingEnabled.Load()
+}
+
+type samplingRunnerCtxKey struct{}
+
+type SamplingRunner struct {
+	LLM            domain.LLMRepository
+	SessionID      int64
+	RunnerAddr     string
+	Model          string
+	SamplingModel  string
+	StopSequences  []string
+	TimeoutSeconds int32
+	GenParams      *domain.GenerationParams
+}
+
+func samplingModelFor(sr *SamplingRunner) string {
+	if sr == nil {
+		return ""
+	}
+
+	if m := strings.TrimSpace(sr.SamplingModel); m != "" {
+		return m
+	}
+
+	return strings.TrimSpace(sr.Model)
+}
+
+func WithSamplingRunner(ctx context.Context, sr *SamplingRunner) context.Context {
+	if sr == nil {
+		return ctx
+	}
+
+	logger.I("MCP sampling: phase=context_bind session_id=%d model=%q runner=%q", sr.SessionID, sr.Model, sr.RunnerAddr)
+	return context.WithValue(ctx, samplingRunnerCtxKey{}, sr)
+}
+
+func samplingRunnerFromCtx(ctx context.Context) *SamplingRunner {
+	v, _ := ctx.Value(samplingRunnerCtxKey{}).(*SamplingRunner)
+	return v
+}
+
+func samplingMessagesToDomain(sessionID int64, systemPrompt string, msgs []*mcp.SamplingMessage) []*domain.Message {
+	var out []*domain.Message
+	if sp := strings.TrimSpace(systemPrompt); sp != "" {
+		out = append(out, domain.NewMessage(sessionID, sp, domain.MessageRoleSystem))
+	}
+
+	for _, m := range msgs {
+		if m == nil {
+			continue
+		}
+
+		content := strings.TrimSpace(contentToLLMString(m.Content))
+		role := domain.FromProtoRole(string(m.Role))
+		out = append(out, domain.NewMessage(sessionID, content, role))
+	}
+
+	return out
+}
+
+func samplingMessagesV2ToDomain(sessionID int64, systemPrompt string, msgs []*mcp.SamplingMessageV2) []*domain.Message {
+	var out []*domain.Message
+	if sp := strings.TrimSpace(systemPrompt); sp != "" {
+		out = append(out, domain.NewMessage(sessionID, sp, domain.MessageRoleSystem))
+	}
+
+	for _, m := range msgs {
+		if m == nil {
+			continue
+		}
+
+		var parts []string
+		for _, c := range m.Content {
+			if c == nil {
+				continue
+			}
+
+			if s := strings.TrimSpace(contentToLLMString(c)); s != "" {
+				parts = append(parts, s)
+			}
+		}
+
+		content := strings.Join(parts, "\n")
+		role := domain.FromProtoRole(string(m.Role))
+		out = append(out, domain.NewMessage(sessionID, content, role))
+	}
+
+	return out
+}
+
+func (sr *SamplingRunner) runCompletion(ctx context.Context, msgs []*domain.Message, maxTokens int64, temperature float64, extraStops []string) (string, error) {
+	if sr == nil || sr.LLM == nil {
+		return "", context.Canceled
+	}
+
+	var gp domain.GenerationParams
+	if sr.GenParams != nil {
+		gp = *sr.GenParams
+	}
+
+	gp.Tools = nil
+	gp.ResponseFormat = nil
+
+	if maxTokens > 0 {
+		mt := min(int32(maxTokens), maxSamplingTokens)
+
+		gp.MaxTokens = &mt
+	}
+
+	if temperature > 0 {
+		t := float32(temperature)
+		gp.Temperature = &t
+	}
+
+	stops := sr.StopSequences
+	if len(extraStops) > 0 {
+		stops = append(append([]string{}, stops...), extraStops...)
+	}
+
+	model := samplingModelFor(sr)
+	logger.I("MCP sampling: phase=llm_request session_id=%d model=%q runner=%q msgs=%d max_tokens=%d temp=%.4f stops=%d", sr.SessionID, model, sr.RunnerAddr, len(msgs), maxTokens, temperature, len(stops))
+
+	ch, err := sr.LLM.SendMessageOnRunner(ctx, sr.RunnerAddr, msgs, stops, sr.TimeoutSeconds, &gp)
+	if err != nil {
+		logger.W("MCP sampling: phase=llm_request_err session_id=%d err=%v", sr.SessionID, err)
+		return "", err
+	}
+
+	text, err := drainSamplingStream(ctx, ch)
+	if err != nil {
+		logger.W("MCP sampling: phase=llm_stream_err session_id=%d err=%v partial_runes=%d", sr.SessionID, err, utf8.RuneCountInString(text))
+		return text, err
+	}
+
+	text = strings.TrimSpace(text)
+	rc := utf8.RuneCountInString(text)
+	if rc > maxSamplingReplyRunes {
+		r := []rune(text)
+		text = string(r[:maxSamplingReplyRunes]) + "\n...(обрезано для MCP sampling)"
+		logger.I("MCP sampling: phase=llm_done session_id=%d reply_runes=%d->%d truncated=true", sr.SessionID, rc, maxSamplingReplyRunes)
+	} else {
+		logger.I("MCP sampling: phase=llm_done session_id=%d reply_runes=%d truncated=false", sr.SessionID, rc)
+	}
+
+	return text, nil
+}
+
+func drainSamplingStream(ctx context.Context, ch chan domain.LLMStreamChunk) (string, error) {
+	var b strings.Builder
+	for {
+		select {
+		case <-ctx.Done():
+			return b.String(), ctx.Err()
+		case c, ok := <-ch:
+			if !ok {
+				return b.String(), nil
+			}
+
+			b.WriteString(c.Content)
+		}
+	}
+}
+
+func runSamplingCreateMessage(ctx context.Context, sr *SamplingRunner, p *mcp.CreateMessageParams) (*mcp.CreateMessageResult, error) {
+	if p == nil {
+		p = &mcp.CreateMessageParams{}
+	}
+
+	msgs := samplingMessagesToDomain(sr.SessionID, p.SystemPrompt, p.Messages)
+	logger.I("MCP sampling/createMessage: phase=start session=%d messages=%d maxTokens=%d", sr.SessionID, len(msgs), p.MaxTokens)
+
+	text, err := sr.runCompletion(ctx, msgs, p.MaxTokens, p.Temperature, p.StopSequences)
+	if err != nil {
+		logger.W("MCP sampling/createMessage: phase=error session=%d err=%v", sr.SessionID, err)
+		return nil, err
+	}
+
+	logger.I("MCP sampling/createMessage: phase=ok session=%d reply_runes=%d", sr.SessionID, utf8.RuneCountInString(text))
+	return &mcp.CreateMessageResult{
+		Content:    &mcp.TextContent{Text: text},
+		Model:      sr.Model,
+		Role:       "assistant",
+		StopReason: "endTurn",
+	}, nil
+}
+
+func runSamplingCreateMessageWithTools(ctx context.Context, sr *SamplingRunner, p *mcp.CreateMessageWithToolsParams) (*mcp.CreateMessageWithToolsResult, error) {
+	if p == nil {
+		p = &mcp.CreateMessageWithToolsParams{}
+	}
+
+	msgs := samplingMessagesV2ToDomain(sr.SessionID, p.SystemPrompt, p.Messages)
+	logger.I("MCP sampling/createMessage (tools form): phase=start session=%d messages=%d serverTools=%d (tools не проксируются в LLM)", sr.SessionID, len(msgs), len(p.Tools))
+
+	text, err := sr.runCompletion(ctx, msgs, p.MaxTokens, p.Temperature, p.StopSequences)
+	if err != nil {
+		logger.W("MCP sampling/createMessage (tools form): phase=error session=%d err=%v", sr.SessionID, err)
+		return nil, err
+	}
+
+	logger.I("MCP sampling/createMessage (tools form): phase=ok session=%d reply_runes=%d", sr.SessionID, utf8.RuneCountInString(text))
+	return &mcp.CreateMessageWithToolsResult{
+		Content:    []mcp.Content{&mcp.TextContent{Text: text}},
+		Model:      sr.Model,
+		Role:       "assistant",
+		StopReason: "endTurn",
+	}, nil
+}
+
+func samplingClientOptions(ctx context.Context) *mcp.ClientOptions {
+	if !samplingEnabled.Load() {
+		return nil
+	}
+
+	sr := samplingRunnerFromCtx(ctx)
+	if sr == nil {
+		return nil
+	}
+
+	runner := *sr
+	logger.D("MCP sampling: samplingClientOptions session_id=%d (handlers зарегистрированы)", runner.SessionID)
+	return &mcp.ClientOptions{
+		CreateMessageHandler: func(cctx context.Context, req *mcp.CreateMessageRequest) (*mcp.CreateMessageResult, error) {
+			if req == nil {
+				return nil, context.Canceled
+			}
+
+			return runSamplingCreateMessage(cctx, &runner, req.Params)
+		},
+		CreateMessageWithToolsHandler: func(cctx context.Context, req *mcp.CreateMessageWithToolsRequest) (*mcp.CreateMessageWithToolsResult, error) {
+			if req == nil {
+				return nil, context.Canceled
+			}
+
+			return runSamplingCreateMessageWithTools(cctx, &runner, req.Params)
+		},
+	}
+}
+
+func samplingRuntimeFingerprint(ctx context.Context) string {
+	if !samplingEnabled.Load() {
+		return ""
+	}
+
+	sr := samplingRunnerFromCtx(ctx)
+	if sr == nil {
+		return ""
+	}
+
+	var maxTokens int32
+	var temperature float32
+	var topP float32
+	if sr.GenParams != nil {
+		if sr.GenParams.MaxTokens != nil {
+			maxTokens = *sr.GenParams.MaxTokens
+		}
+		if sr.GenParams.Temperature != nil {
+			temperature = *sr.GenParams.Temperature
+		}
+		if sr.GenParams.TopP != nil {
+			topP = *sr.GenParams.TopP
+		}
+	}
+
+	payload := struct {
+		SessionID      int64    `json:"session_id"`
+		RunnerAddr     string   `json:"runner_addr"`
+		Model          string   `json:"model"`
+		StopSequences  []string `json:"stop_sequences"`
+		TimeoutSeconds int32    `json:"timeout_seconds"`
+		MaxTokens      int32    `json:"max_tokens"`
+		Temperature    float32  `json:"temperature"`
+		TopP           float32  `json:"top_p"`
+	}{
+		SessionID:      sr.SessionID,
+		RunnerAddr:     strings.TrimSpace(sr.RunnerAddr),
+		Model:          strings.TrimSpace(sr.Model),
+		StopSequences:  append([]string(nil), sr.StopSequences...),
+		TimeoutSeconds: sr.TimeoutSeconds,
+		MaxTokens:      maxTokens,
+		Temperature:    temperature,
+		TopP:           topP,
+	}
+
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Sprintf("sampling:%d:%s:%s", sr.SessionID, strings.TrimSpace(sr.RunnerAddr), strings.TrimSpace(sr.Model))
+	}
+
+	sum := sha256.Sum256(b)
+	return "sampling:" + hex.EncodeToString(sum[:12])
+}

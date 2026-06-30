@@ -1,0 +1,308 @@
+package llmhistory
+
+import (
+	"math"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/magomedcoder/lmpkg/document"
+	"github.com/magomedcoder/lmpkg/domain"
+)
+
+const HistoryTruncatedClientNotice = "Часть более старой переписки не передана модели из-за лимита оценки токенов."
+
+func messageHasLikelyVisionImage(m *domain.Message) bool {
+	if m == nil || len(m.AttachmentContent) == 0 {
+		return false
+	}
+
+	mt := strings.ToLower(strings.TrimSpace(m.AttachmentMime))
+	if strings.HasPrefix(mt, "image/") {
+		return true
+	}
+
+	if mt == "" {
+		return document.IsImageAttachment(m.AttachmentName) || strings.TrimSpace(m.AttachmentName) == ""
+	}
+
+	return false
+}
+
+func approxVisionImageTokens(byteLen int) int {
+	if byteLen <= 0 {
+		return 0
+	}
+
+	const (
+		minTokens = 256
+		maxTokens = 8192
+	)
+
+	t := min(max(byteLen/16, minTokens), maxTokens)
+
+	return t
+}
+
+func ApproximateMessageTokens(m *domain.Message) int {
+	if m == nil {
+		return 0
+	}
+
+	runes := utf8.RuneCountInString(m.Content)
+	runes += utf8.RuneCountInString(m.ToolCallsJSON)
+	runes += utf8.RuneCountInString(m.ToolName)
+	runes += utf8.RuneCountInString(m.ToolCallID)
+
+	extraTok := 0
+	if len(m.AttachmentContent) > 0 {
+		if messageHasLikelyVisionImage(m) {
+			if strings.TrimSpace(m.AttachmentMime) != "" {
+				runes += utf8.RuneCountInString(m.AttachmentMime)
+			} else {
+				runes += utf8.RuneCountInString(m.AttachmentName)
+			}
+
+			extraTok += approxVisionImageTokens(len(m.AttachmentContent))
+		} else {
+			runes += len(m.AttachmentContent) / 4
+			runes += utf8.RuneCountInString(m.AttachmentMime)
+		}
+	} else {
+		runes += utf8.RuneCountInString(m.AttachmentName)
+	}
+
+	const perMessageOverhead = 6
+	tok := runes/4 + perMessageOverhead + extraTok
+	if tok < 1 {
+		return 1
+	}
+
+	return tok
+}
+
+func SumApproxTokens(msgs []*domain.Message) int {
+	s := 0
+	for _, m := range msgs {
+		s += ApproximateMessageTokens(m)
+	}
+
+	return s
+}
+
+func TrimMessagesByApproxTokens(msgs []*domain.Message, maxTokens int, tailPreserve int) ([]*domain.Message, bool) {
+	out, trimmed, _ := TrimMessagesByApproxTokensWithDropped(msgs, maxTokens, tailPreserve)
+	return out, trimmed
+}
+
+func TrimMessagesByApproxTokensWithDropped(msgs []*domain.Message, maxTokens int, tailPreserve int) ([]*domain.Message, bool, []*domain.Message) {
+	if maxTokens <= 0 || len(msgs) <= 1 {
+		return msgs, false, nil
+	}
+
+	if tailPreserve < 0 {
+		tailPreserve = 0
+	}
+
+	if len(msgs) <= 1+tailPreserve {
+		total := SumApproxTokens(msgs)
+		if total <= maxTokens {
+			return msgs, false, nil
+		}
+
+		out := cloneMessageSliceForTrim(msgs)
+		out = shrinkMessagesToApproxTokenBudget(out, maxTokens, tailPreserve)
+		return out, true, nil
+	}
+
+	tailStart := len(msgs) - tailPreserve
+	system := msgs[0]
+	tail := msgs[tailStart:]
+	middle := append([]*domain.Message(nil), msgs[1:tailStart]...)
+
+	total := ApproximateMessageTokens(system) + SumApproxTokens(middle) + SumApproxTokens(tail)
+	if total <= maxTokens {
+		return msgs, false, nil
+	}
+
+	var dropped []*domain.Message
+	trimmed := false
+	for len(middle) > 0 && total > maxTokens {
+		first := middle[0]
+		dropped = append(dropped, first)
+		drop := ApproximateMessageTokens(first)
+		middle = middle[1:]
+		total -= drop
+
+		if len(middle) > 0 &&
+			first.Role == domain.MessageRoleUser &&
+			messageHasLikelyVisionImage(first) &&
+			middle[0].Role == domain.MessageRoleAssistant &&
+			strings.TrimSpace(middle[0].ToolCallsJSON) == "" {
+			dropped = append(dropped, middle[0])
+			drop2 := ApproximateMessageTokens(middle[0])
+			middle = middle[1:]
+			total -= drop2
+		}
+
+		trimmed = true
+	}
+
+	if !trimmed {
+		return msgs, false, nil
+	}
+
+	out := make([]*domain.Message, 0, 1+len(middle)+len(tail))
+	out = append(out, system)
+	out = append(out, middle...)
+	out = append(out, tail...)
+
+	return out, true, dropped
+}
+
+const llmContextTruncationNotice = "\n\n[...фрагмент убран из‑за лимита контекста модели...]"
+
+func cloneMessageSliceForTrim(msgs []*domain.Message) []*domain.Message {
+	out := make([]*domain.Message, len(msgs))
+	for i, m := range msgs {
+		if m == nil {
+			continue
+		}
+
+		cp := *m
+		out[i] = &cp
+	}
+
+	return out
+}
+
+func shrinkMessagesToApproxTokenBudget(msgs []*domain.Message, maxTokens int, preserveTail int) []*domain.Message {
+	if len(msgs) == 0 {
+		return msgs
+	}
+
+	if preserveTail < 0 {
+		preserveTail = 0
+	}
+
+	if preserveTail > len(msgs) {
+		preserveTail = len(msgs)
+	}
+
+	out := cloneMessageSliceForTrim(msgs)
+	for SumApproxTokens(out) > maxTokens {
+		tailStart := max(len(out)-preserveTail, 0)
+
+		idx := -1
+		for i := tailStart - 1; i >= 0; i-- {
+			if out[i] != nil && strings.TrimSpace(out[i].Content) != "" {
+				idx = i
+				break
+			}
+		}
+
+		if idx < 0 {
+			break
+		}
+
+		r := []rune(out[idx].Content)
+		if len(r) <= 96 {
+			out[idx].Content = ""
+			continue
+		}
+
+		newLen := max(len(r)*3/4, 64)
+
+		out[idx].Content = string(r[:newLen]) + llmContextTruncationNotice
+	}
+	return out
+}
+
+func truncateRunes(s string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return ""
+	}
+
+	r := []rune(s)
+	if len(r) <= maxRunes {
+		return s
+	}
+
+	return string(r[:maxRunes]) + "\n..."
+}
+
+func BuildDroppedDialoguePlainText(msgs []*domain.Message, maxRunes int) string {
+	if maxRunes <= 0 {
+		maxRunes = math.MaxInt
+	}
+
+	var b strings.Builder
+	used := 0
+	for _, m := range msgs {
+		if m == nil {
+			continue
+		}
+
+		role := string(m.Role)
+		content := strings.TrimSpace(m.Content)
+		if m.Role == domain.MessageRoleAssistant && strings.TrimSpace(m.ToolCallsJSON) != "" {
+			content = strings.TrimSpace(m.ToolCallsJSON) + "\n" + content
+		}
+
+		if m.Role == domain.MessageRoleTool {
+			tn := strings.TrimSpace(m.ToolName)
+			if tn != "" {
+				content = "[" + tn + "] " + content
+			}
+		}
+
+		budget := maxRunes - used - utf8.RuneCountInString(role) - 4
+		if budget < 80 {
+			break
+		}
+
+		if utf8.RuneCountInString(content) > budget {
+			content = truncateRunes(content, budget)
+		}
+
+		line := role + ": " + content + "\n"
+		rn := utf8.RuneCountInString(line)
+		if used+rn > maxRunes {
+			break
+		}
+
+		b.WriteString(line)
+		used += rn
+	}
+
+	return strings.TrimSpace(b.String())
+}
+
+func InjectSummaryAfterSystem(msgs []*domain.Message, summary string) []*domain.Message {
+	if len(msgs) == 0 || strings.TrimSpace(summary) == "" {
+		return msgs
+	}
+
+	sys := *msgs[0]
+	sys.Content = strings.TrimSpace(sys.Content) + "\n\n--- Резюме отброшенной части диалога ---\n" + strings.TrimSpace(summary)
+	out := make([]*domain.Message, len(msgs))
+	out[0] = &sys
+	copy(out[1:], msgs[1:])
+
+	return out
+}
+
+func NormalizeApproxMaxTokens(n int) int {
+	if n <= 0 {
+		return 0
+	}
+
+	if n < 512 {
+		return 512
+	}
+
+	if n > 500_000 {
+		return 500_000
+	}
+
+	return n
+}

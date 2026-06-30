@@ -1,0 +1,41 @@
+package prompt
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/lmpkg/mcpclient"
+)
+
+func TestEnrichSystemMessage_includesCatalogAndInvocation(t *testing.T) {
+	msg := domain.NewMessage(1, "base", domain.MessageRoleSystem)
+	tools := []domain.Tool{
+		{
+			Name:        "echo_tool",
+			Description: "d",
+		},
+	}
+	EnrichSystemMessage(msg, SystemToolsOptions{
+		Tools: tools,
+		MCPEntries: []mcpclient.ServerEntry{
+			{
+				ID:      1,
+				Name:    "srv",
+				Enabled: true,
+			},
+		},
+	})
+
+	if !strings.Contains(msg.Content, "[Tools]") {
+		t.Fatal("отсутствует каталог")
+	}
+
+	if !strings.Contains(msg.Content, "JSON-массив") {
+		t.Fatal("отсутствует блок вызова")
+	}
+
+	if !strings.Contains(msg.Content, "[MCP]") {
+		t.Fatal("отсутствуют подсказки mcp")
+	}
+}
