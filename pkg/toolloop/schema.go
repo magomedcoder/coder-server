@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/magomedcoder/lmpkg/domain"
-	"github.com/magomedcoder/lmpkg/logger"
+	"github.com/magomedcoder/coder-server/pkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/logger"
 )
 
 func parametersJSONByName(genParams *domain.GenerationParams, resolvedToolName string) string {

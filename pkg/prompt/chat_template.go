@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/magomedcoder/coder-server/pkg/domain"
 	"github.com/magomedcoder/lm-runner/template"
-	"github.com/magomedcoder/lmpkg/domain"
 )
 
 func BuildChatPrompt(chatTemplateJinja string, messages []*domain.Message) (string, error) {

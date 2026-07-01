@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/lmpkg/document"
+	"github.com/magomedcoder/coder-server/pkg/document"
 	"github.com/xuri/excelize/v2"
 )
 

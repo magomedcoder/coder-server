@@ -3,7 +3,7 @@ package chatattachment
 import (
 	"fmt"
 
-	"github.com/magomedcoder/lmpkg/rag"
+	"github.com/magomedcoder/coder-server/pkg/rag"
 	"strings"
 )
 

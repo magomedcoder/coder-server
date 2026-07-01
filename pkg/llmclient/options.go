@@ -3,7 +3,7 @@ package llmclient
 import (
 	"time"
 
-	"github.com/magomedcoder/lmpkg/llmrunner"
+	"github.com/magomedcoder/coder-server/pkg/llmrunner"
 )
 
 type ReliabilityOptions struct {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/magomedcoder/lmpkg/document"
-	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/document"
+	"github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 func LastUserMessageHasVisionAttachment(msgs []*domain.Message) bool {

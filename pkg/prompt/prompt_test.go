@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/magomedcoder/lmpkg/domain"
-	"github.com/magomedcoder/lmpkg/llmhistory"
+	"github.com/magomedcoder/coder-server/pkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/llmhistory"
 )
 
 const testMaxContextTokens = 512

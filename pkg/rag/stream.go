@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 func DrainStreamContent(ctx context.Context, ch <-chan domain.LLMStreamChunk) (string, error) {

@@ -15,7 +15,7 @@ func TestTruncateLLMReplyNoOp(t *testing.T) {
 func TestTruncateLLMReplyCutsRunes(t *testing.T) {
 	s := strings.Repeat("Я", 50)
 	got := TruncateLLMReply(s, 10)
-	if !strings.Contains(got, "[GEN: ответ обрезан") {
+	if !strings.Contains(got, "[Coder: ответ обрезан") {
 		t.Fatal("ожидалось маркер")
 	}
 

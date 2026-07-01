@@ -8,12 +8,12 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/lmpkg/chatstream"
-	"github.com/magomedcoder/lmpkg/domain"
-	"github.com/magomedcoder/lmpkg/llmhistory"
-	"github.com/magomedcoder/lmpkg/logger"
-	"github.com/magomedcoder/lmpkg/mcpclient"
-	"github.com/magomedcoder/lmpkg/toolloop"
+	"github.com/magomedcoder/coder-server/pkg/chatstream"
+	"github.com/magomedcoder/coder-server/pkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/llmhistory"
+	"github.com/magomedcoder/coder-server/pkg/logger"
+	"github.com/magomedcoder/coder-server/pkg/mcpclient"
+	"github.com/magomedcoder/coder-server/pkg/toolloop"
 )
 
 func Run(ctx context.Context, cfg Config) (chan chatstream.ChatStreamChunk, error) {

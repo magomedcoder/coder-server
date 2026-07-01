@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/magomedcoder/lmpkg/domain"
-	"github.com/magomedcoder/lmpkg/mcpclient"
-	mcpdomain "github.com/magomedcoder/lmpkg/mcpclient/domain"
-	"github.com/magomedcoder/lmpkg/toolloop"
+	"github.com/magomedcoder/coder-server/pkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/mcpclient"
+	mcpdomain "github.com/magomedcoder/coder-server/pkg/mcpclient/domain"
+	"github.com/magomedcoder/coder-server/pkg/toolloop"
 )
 
 type Registry struct {

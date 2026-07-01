@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 func NormalizedAvailableModels(raw []string) []string {

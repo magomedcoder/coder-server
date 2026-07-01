@@ -8,17 +8,17 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/service"
-	gendomain "github.com/magomedcoder/lmpkg/domain"
+	pkgdomain "github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 func writeChatMCPLoopSSE(
 	ctx context.Context,
 	w http.ResponseWriter,
 	loop *service.ChatMCPLoop,
-	messages []*gendomain.Message,
+	messages []*pkgdomain.Message,
 	stopSequences []string,
 	timeout int32,
-	genParams *gendomain.GenerationParams,
+	genParams *pkgdomain.GenerationParams,
 	serverIDs []int64,
 	streams *ActiveStreams,
 	session *service.StreamSession,
@@ -66,7 +66,7 @@ func writeChatMCPLoopSSE(
 		emit("tool", string(raw))
 	}
 
-	onChunk := func(chunk gendomain.LLMStreamChunk) bool {
+	onChunk := func(chunk pkgdomain.LLMStreamChunk) bool {
 		select {
 		case <-ctx.Done():
 			return false
@@ -89,7 +89,7 @@ func writeChatMCPLoopSSE(
 	type loopResult struct {
 		content   string
 		reasoning string
-		usage     *gendomain.StreamTokenUsage
+		usage     *pkgdomain.StreamTokenUsage
 		err       error
 	}
 

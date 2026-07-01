@@ -7,14 +7,14 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/pkg/circuitbreaker"
+	pkgdomain "github.com/magomedcoder/coder-server/pkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/llmrunner"
 	"github.com/magomedcoder/coder-server/pkg/requestqueue"
 	"github.com/magomedcoder/coder-server/pkg/ssestream"
-	gendomain "github.com/magomedcoder/lmpkg/domain"
-	"github.com/magomedcoder/lmpkg/llmrunner"
 )
 
 type Service struct {
-	llm      gendomain.LLMRepository
+	llm      pkgdomain.LLMRepository
 	pool     *llmrunner.Pool
 	reg      *llmrunner.Registry
 	breaker  *circuitbreaker.Breaker
@@ -113,7 +113,7 @@ func (s *Service) ModelReady(ctx context.Context) error {
 		}
 	}
 
-	return gendomain.ErrRunnerModelNotLoaded
+	return pkgdomain.ErrRunnerModelNotLoaded
 }
 
 func (s *Service) ProbeBestRunner(ctx context.Context) (llmrunner.RunnerProbeResult, string, error) {
@@ -159,11 +159,11 @@ func (s *Service) ChatHints() llmrunner.RunnerCoreHints {
 
 func (s *Service) SendMessage(
 	ctx context.Context,
-	messages []*gendomain.Message,
+	messages []*pkgdomain.Message,
 	stopSequences []string,
 	timeoutSeconds int32,
-	genParams *gendomain.GenerationParams,
-) (chan gendomain.LLMStreamChunk, error) {
+	genParams *pkgdomain.GenerationParams,
+) (chan pkgdomain.LLMStreamChunk, error) {
 	_, ch, err := s.SendMessageWithMeta(ctx, messages, stopSequences, timeoutSeconds, genParams)
 	return ch, err
 }
@@ -176,11 +176,11 @@ type StreamMeta struct {
 
 func (s *Service) SendMessageWithMeta(
 	ctx context.Context,
-	messages []*gendomain.Message,
+	messages []*pkgdomain.Message,
 	stopSequences []string,
 	timeoutSeconds int32,
-	genParams *gendomain.GenerationParams,
-) (StreamMeta, chan gendomain.LLMStreamChunk, error) {
+	genParams *pkgdomain.GenerationParams,
+) (StreamMeta, chan pkgdomain.LLMStreamChunk, error) {
 	if s == nil || s.llm == nil {
 		return StreamMeta{}, nil, fmt.Errorf("pool не инициализирован")
 	}
@@ -205,11 +205,11 @@ func (s *Service) SendMessageWithMeta(
 func (s *Service) SendMessageOnRunner(
 	ctx context.Context,
 	runnerAddr string,
-	messages []*gendomain.Message,
+	messages []*pkgdomain.Message,
 	stopSequences []string,
 	timeoutSeconds int32,
-	genParams *gendomain.GenerationParams,
-) (chan gendomain.LLMStreamChunk, error) {
+	genParams *pkgdomain.GenerationParams,
+) (chan pkgdomain.LLMStreamChunk, error) {
 	if s == nil || s.llm == nil {
 		return nil, fmt.Errorf("pool не инициализирован")
 	}
@@ -236,8 +236,8 @@ func (s *Service) SendMessageOnRunner(
 	return forwardWithQueueRelease(ch, s.queue), nil
 }
 
-func forwardWithQueueRelease(in <-chan gendomain.LLMStreamChunk, q *requestqueue.Queue) chan gendomain.LLMStreamChunk {
-	out := make(chan gendomain.LLMStreamChunk, 100)
+func forwardWithQueueRelease(in <-chan pkgdomain.LLMStreamChunk, q *requestqueue.Queue) chan pkgdomain.LLMStreamChunk {
+	out := make(chan pkgdomain.LLMStreamChunk, 100)
 	go func() {
 		defer close(out)
 		if q != nil {
@@ -253,11 +253,11 @@ func forwardWithQueueRelease(in <-chan gendomain.LLMStreamChunk, q *requestqueue
 
 func (s *Service) sendMessageWithRetry(
 	ctx context.Context,
-	messages []*gendomain.Message,
+	messages []*pkgdomain.Message,
 	stopSequences []string,
 	timeoutSeconds int32,
-	genParams *gendomain.GenerationParams,
-) (StreamMeta, chan gendomain.LLMStreamChunk, error) {
+	genParams *pkgdomain.GenerationParams,
+) (StreamMeta, chan pkgdomain.LLMStreamChunk, error) {
 	addrs := s.eligibleRunners()
 	if len(addrs) == 0 {
 		ch, err := s.llm.SendMessage(ctx, messages, stopSequences, timeoutSeconds, genParams)
@@ -323,15 +323,15 @@ func (s *Service) eligibleRunners() []string {
 type CollectResult struct {
 	Content   string
 	Reasoning string
-	Usage     *gendomain.StreamTokenUsage
+	Usage     *pkgdomain.StreamTokenUsage
 }
 
 func (s *Service) CollectMessage(
 	ctx context.Context,
-	messages []*gendomain.Message,
+	messages []*pkgdomain.Message,
 	stopSequences []string,
 	timeoutSeconds int32,
-	genParams *gendomain.GenerationParams,
+	genParams *pkgdomain.GenerationParams,
 ) (CollectResult, error) {
 	ch, err := s.SendMessage(ctx, messages, stopSequences, timeoutSeconds, genParams)
 	if err != nil {
@@ -340,7 +340,7 @@ func (s *Service) CollectMessage(
 
 	var content strings.Builder
 	var reasoning strings.Builder
-	var usage *gendomain.StreamTokenUsage
+	var usage *pkgdomain.StreamTokenUsage
 	for chunk := range ch {
 		if chunk.ReasoningContent != "" {
 			reasoning.WriteString(chunk.ReasoningContent)
@@ -387,7 +387,7 @@ func mapPoolError(err error) error {
 		return nil
 	}
 
-	if errors.Is(err, gendomain.ErrRunnerModelNotLoaded) {
+	if errors.Is(err, pkgdomain.ErrRunnerModelNotLoaded) {
 		return err
 	}
 

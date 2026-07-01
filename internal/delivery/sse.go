@@ -9,15 +9,15 @@ import (
 	"strings"
 
 	"github.com/magomedcoder/coder-server/internal/service"
+	pkgdomain "github.com/magomedcoder/coder-server/pkg/domain"
 	"github.com/magomedcoder/coder-server/pkg/llmclient"
-	gendomain "github.com/magomedcoder/lmpkg/domain"
 )
 
 func writeRunnerSSE(
 	ctx context.Context,
 	w http.ResponseWriter,
 	streamMeta llmclient.StreamMeta,
-	chunks <-chan gendomain.LLMStreamChunk,
+	chunks <-chan pkgdomain.LLMStreamChunk,
 	streams *ActiveStreams,
 	session *service.StreamSession,
 	metrics *service.Metrics,
@@ -45,7 +45,7 @@ func writeRunnerSSE(
 	}
 
 	eventID := 0
-	var usage *gendomain.StreamTokenUsage
+	var usage *pkgdomain.StreamTokenUsage
 	var full strings.Builder
 
 	emit := func(event, data string) {

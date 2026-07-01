@@ -8,8 +8,8 @@ import (
 	"github.com/magomedcoder/coder-server/internal/config"
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
+	pkgdomain "github.com/magomedcoder/coder-server/pkg/domain"
 	"github.com/magomedcoder/coder-server/pkg/security"
-	gendomain "github.com/magomedcoder/lmpkg/domain"
 )
 
 // const inlineCompleteSystemPromptRu = `Ты - движок inline-дополнения кода. Продолжи код в позиции <CURSOR>. Верни ТОЛЬКО текст для вставки после курсора. Без markdown-ограждений, без пояснений, без повторения уже существующего кода.`
@@ -163,7 +163,7 @@ func scanEditorAIInput(cfg *config.Config, parts ...string) error {
 	return nil
 }
 
-func inlineCompleteGenParams(in *domain.GenerateParams, cfg *config.Config) *gendomain.GenerationParams {
+func inlineCompleteGenParams(in *domain.GenerateParams, cfg *config.Config) *pkgdomain.GenerationParams {
 	gen := mapper.GenerateParams(in, cfg.Chat.Generate)
 	maxTokens := int32(96)
 	temp := float32(0.1)
@@ -180,7 +180,7 @@ func inlineCompleteGenParams(in *domain.GenerateParams, cfg *config.Config) *gen
 	return gen
 }
 
-func editSelectionGenParams(in *domain.GenerateParams, cfg *config.Config) *gendomain.GenerationParams {
+func editSelectionGenParams(in *domain.GenerateParams, cfg *config.Config) *pkgdomain.GenerationParams {
 	gen := mapper.GenerateParams(in, cfg.Chat.Generate)
 	maxTokens := int32(1024)
 	temp := float32(0.2)

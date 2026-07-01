@@ -2,10 +2,10 @@ package mcpclient
 
 import (
 	"context"
-	domain2 "github.com/magomedcoder/lmpkg/mcpclient/domain"
+	domain2 "github.com/magomedcoder/coder-server/pkg/mcpclient/domain"
 	"testing"
 
-	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 func TestUseHTTPSessionPool(t *testing.T) {

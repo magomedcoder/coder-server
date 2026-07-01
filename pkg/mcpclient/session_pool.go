@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/magomedcoder/lmpkg/mcpclient/domain"
+	"github.com/magomedcoder/coder-server/pkg/mcpclient/domain"
 
-	"github.com/magomedcoder/lmpkg/logger"
+	"github.com/magomedcoder/coder-server/pkg/logger"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -98,7 +98,10 @@ func (p *httpSessionPool) run(ctx context.Context, srv *domain.MCPServer, notify
 				return err
 			}
 			opts := buildMCPClientOptions(ctx, srv, notify)
-			cli := mcp.NewClient(&mcp.Implementation{Name: "gen", Version: "1.0.0"}, opts)
+			cli := mcp.NewClient(&mcp.Implementation{
+				Name:    "coder",
+				Version: "1.0.0",
+			}, opts)
 			if r := rootsForSession(); len(r) > 0 {
 				cli.AddRoots(r...)
 			}

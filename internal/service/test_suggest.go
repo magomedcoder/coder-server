@@ -8,7 +8,7 @@ import (
 
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
-	gendomain "github.com/magomedcoder/lmpkg/domain"
+	pkgdomain "github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 type TestSuggestService struct {
@@ -51,10 +51,10 @@ Write minimal focused tests for the provided source. Use idiomatic test style fo
 			Content: user,
 		},
 	}, nil, nil, 8192, false, nil)
-	result, err := s.llm.CollectMessage(ctx, messages, nil, s.timeoutSeconds, &gendomain.GenerationParams{
+	result, err := s.llm.CollectMessage(ctx, messages, nil, s.timeoutSeconds, &pkgdomain.GenerationParams{
 		MaxTokens:      &maxTokens,
 		Temperature:    &temp,
-		ResponseFormat: &gendomain.ResponseFormat{Type: rf},
+		ResponseFormat: &pkgdomain.ResponseFormat{Type: rf},
 	})
 	if err != nil {
 		return domain.TestSuggestResponse{}, err

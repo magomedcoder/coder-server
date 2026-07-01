@@ -10,7 +10,7 @@ import (
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
 	"github.com/magomedcoder/coder-server/pkg/contextbuilder"
-	gendomain "github.com/magomedcoder/lmpkg/domain"
+	pkgdomain "github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 type ChatService struct {
@@ -153,7 +153,7 @@ func chatTimeout(req domain.ChatRequest, cfg *config.Config) int32 {
 	return cfg.ChatTimeoutSeconds()
 }
 
-func mergeGenerateParams(req domain.ChatRequest, cfg *config.Config) *gendomain.GenerationParams {
+func mergeGenerateParams(req domain.ChatRequest, cfg *config.Config) *pkgdomain.GenerationParams {
 	gen := mapper.GenerateParams(req.Generate, cfg.Chat.Generate)
 	if req.Session == nil {
 		return gen

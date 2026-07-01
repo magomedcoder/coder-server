@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/magomedcoder/lmpkg/mcpclient/domain"
+	"github.com/magomedcoder/coder-server/pkg/mcpclient/domain"
 	"sync/atomic"
 	"testing"
 

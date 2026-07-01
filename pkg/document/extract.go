@@ -239,7 +239,7 @@ func ExtractText(filename string, content []byte) (string, error) {
 }
 
 func extractPDFWithPageBounds(ctx context.Context, content []byte) (string, []int, error) {
-	tmpFile, err := os.CreateTemp("", "gen-pdf-*.pdf")
+	tmpFile, err := os.CreateTemp("", "coder-pdf-*.pdf")
 	if err != nil {
 		return "", nil, fmt.Errorf("создание временного файла: %w", err)
 	}

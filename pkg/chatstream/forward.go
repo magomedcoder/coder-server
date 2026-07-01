@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 func ForwardLLMStreamChunks(ctx context.Context, out chan<- ChatStreamChunk, messageID int64, in <-chan domain.LLMStreamChunk, intoContent *strings.Builder) {

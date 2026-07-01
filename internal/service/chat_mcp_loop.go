@@ -10,9 +10,9 @@ import (
 	"sync"
 
 	"github.com/magomedcoder/coder-server/internal/domain"
+	pkgdomain "github.com/magomedcoder/coder-server/pkg/domain"
 	"github.com/magomedcoder/coder-server/pkg/mcpregistry"
-	gendomain "github.com/magomedcoder/lmpkg/domain"
-	"github.com/magomedcoder/lmpkg/toolloop"
+	"github.com/magomedcoder/coder-server/pkg/toolloop"
 )
 
 const defaultChatToolRounds = 5
@@ -57,15 +57,15 @@ func (l *ChatMCPLoop) Enabled(ctx context.Context, session *domain.ChatSession) 
 
 func (l *ChatMCPLoop) Run(
 	ctx context.Context,
-	messages []*gendomain.Message,
+	messages []*pkgdomain.Message,
 	stopSequences []string,
 	timeoutSeconds int32,
-	genParams *gendomain.GenerationParams,
+	genParams *pkgdomain.GenerationParams,
 	serverIDs []int64,
 	requestID string,
 	onEvent func(ChatToolEvent),
-	onChunk func(gendomain.LLMStreamChunk) bool,
-) (content, reasoning string, usage *gendomain.StreamTokenUsage, err error) {
+	onChunk func(pkgdomain.LLMStreamChunk) bool,
+) (content, reasoning string, usage *pkgdomain.StreamTokenUsage, err error) {
 	if l == nil || l.llm == nil || l.mcp == nil {
 		return "", "", nil, fmt.Errorf("MCP tool loop не инициализирован")
 	}
@@ -87,7 +87,7 @@ func (l *ChatMCPLoop) Run(
 	gp := toolloop.CloneGenParamsForToolCalls(genParams)
 	gp.Tools = tools
 
-	history := append([]*gendomain.Message(nil), messages...)
+	history := append([]*pkgdomain.Message(nil), messages...)
 	executor := &mcpChatExecutor{mcp: l.mcp}
 
 	emitTool := func(ev ChatToolEvent) {
@@ -110,7 +110,7 @@ func (l *ChatMCPLoop) Run(
 			return "", "", usage, sendErr
 		}
 
-		forward := func(c gendomain.LLMStreamChunk) bool {
+		forward := func(c pkgdomain.LLMStreamChunk) bool {
 			if c.ReasoningContent != "" {
 				reasoning += c.ReasoningContent
 			}
@@ -226,16 +226,16 @@ func (l *ChatMCPLoop) Run(
 			toolResults[i] = toolloop.TruncateToolResult(outcomes[i].res)
 		}
 
-		assist := &gendomain.Message{
+		assist := &pkgdomain.Message{
 			Content:       full,
-			Role:          gendomain.MessageRoleAssistant,
+			Role:          pkgdomain.MessageRoleAssistant,
 			ToolCallsJSON: toolCallsJSON,
 		}
-		toolMsgs := make([]*gendomain.Message, len(execCalls))
+		toolMsgs := make([]*pkgdomain.Message, len(execCalls))
 		for i, call := range execCalls {
-			toolMsgs[i] = &gendomain.Message{
+			toolMsgs[i] = &pkgdomain.Message{
 				Content:    toolResults[i],
-				Role:       gendomain.MessageRoleTool,
+				Role:       pkgdomain.MessageRoleTool,
 				ToolName:   call.ResolvedName,
 				ToolCallID: fmt.Sprintf("call_%d", i+1),
 			}

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/magomedcoder/lmpkg/mcpclient/domain"
+	"github.com/magomedcoder/coder-server/pkg/mcpclient/domain"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/magomedcoder/lmpkg/logger"
+	"github.com/magomedcoder/coder-server/pkg/logger"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -195,7 +195,7 @@ func withEphemeralSession(ctx context.Context, srv *domain.MCPServer, notify *To
 	defer cancel()
 
 	opts := buildMCPClientOptions(ctx, srv, notify)
-	cli := mcp.NewClient(&mcp.Implementation{Name: "gen", Version: "1.0.0"}, opts)
+	cli := mcp.NewClient(&mcp.Implementation{Name: "coder-server", Version: "1.0.0"}, opts)
 	if r := rootsForSession(); len(r) > 0 {
 		cli.AddRoots(r...)
 	}

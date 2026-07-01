@@ -6,12 +6,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/magomedcoder/lmpkg/mcpclient/domain"
+	"github.com/magomedcoder/coder-server/pkg/mcpclient/domain"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/magomedcoder/lmpkg/logger"
+	"github.com/magomedcoder/coder-server/pkg/logger"
 	"golang.org/x/sync/singleflight"
 )
 

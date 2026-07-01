@@ -3,7 +3,7 @@ package service
 import (
 	"strings"
 
-	"github.com/magomedcoder/lmpkg/mcpclient"
+	"github.com/magomedcoder/coder-server/pkg/mcpclient"
 )
 
 var agentToolNames = map[string]struct{}{

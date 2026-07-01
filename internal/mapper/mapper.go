@@ -7,7 +7,7 @@ import (
 	"github.com/magomedcoder/coder-server/internal/config"
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/pkg/contextbuilder"
-	gendomain "github.com/magomedcoder/lmpkg/domain"
+	pkgdomain "github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 func RunnerMessages(
@@ -18,14 +18,14 @@ func RunnerMessages(
 	tokenBudget int,
 	scanSecrets bool,
 	prefixCache *contextbuilder.PrefixCache,
-) []*gendomain.Message {
-	out := make([]*gendomain.Message, 0, len(input)+3)
+) []*pkgdomain.Message {
+	out := make([]*pkgdomain.Message, 0, len(input)+3)
 	now := time.Now()
 
 	if systemPrompt := strings.TrimSpace(system); systemPrompt != "" {
-		out = append(out, &gendomain.Message{
+		out = append(out, &pkgdomain.Message{
 			Content:   systemPrompt,
-			Role:      gendomain.MessageRoleSystem,
+			Role:      pkgdomain.MessageRoleSystem,
 			CreatedAt: now,
 		})
 	}
@@ -47,17 +47,17 @@ func RunnerMessages(
 	}
 
 	if ctxPrompt != "" {
-		out = append(out, &gendomain.Message{
+		out = append(out, &pkgdomain.Message{
 			Content:   ctxPrompt,
-			Role:      gendomain.MessageRoleSystem,
+			Role:      pkgdomain.MessageRoleSystem,
 			CreatedAt: now,
 		})
 	}
 
 	for _, msg := range input {
-		out = append(out, &gendomain.Message{
+		out = append(out, &pkgdomain.Message{
 			Content:   msg.Content,
-			Role:      gendomain.FromProtoRole(msg.Role),
+			Role:      pkgdomain.FromProtoRole(msg.Role),
 			CreatedAt: now,
 		})
 	}
@@ -65,8 +65,8 @@ func RunnerMessages(
 	return out
 }
 
-func GenerateParams(in *domain.GenerateParams, defaults config.GenerateConfig) *gendomain.GenerationParams {
-	out := &gendomain.GenerationParams{}
+func GenerateParams(in *domain.GenerateParams, defaults config.GenerateConfig) *pkgdomain.GenerationParams {
+	out := &pkgdomain.GenerationParams{}
 
 	maxTokens := defaults.MaxTokens
 	if in != nil && in.MaxTokens != nil {
@@ -90,7 +90,7 @@ func GenerateParams(in *domain.GenerateParams, defaults config.GenerateConfig) *
 	return out
 }
 
-func TokenUsage(u *gendomain.StreamTokenUsage) *domain.TokenUsage {
+func TokenUsage(u *pkgdomain.StreamTokenUsage) *domain.TokenUsage {
 	if u == nil {
 		return nil
 	}

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 const DeepMapSystem = `Ты сжимаешь выдержки из документа в короткую рабочую заметку для финального шага ответа.

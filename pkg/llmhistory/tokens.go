@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/lmpkg/document"
-	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/document"
+	"github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 const HistoryTruncatedClientNotice = "Часть более старой переписки не передана модели из-за лимита оценки токенов."

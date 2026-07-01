@@ -10,8 +10,8 @@ import (
 	"github.com/magomedcoder/coder-server/internal/mapper"
 	"github.com/magomedcoder/coder-server/internal/service"
 	"github.com/magomedcoder/coder-server/pkg/contextbudget"
+	pkgdomain "github.com/magomedcoder/coder-server/pkg/domain"
 	"github.com/magomedcoder/coder-server/pkg/security"
-	gendomain "github.com/magomedcoder/lmpkg/domain"
 )
 
 func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
@@ -185,10 +185,10 @@ func (h *Handler) runChatWithMCPTools(
 	w http.ResponseWriter,
 	req domain.ChatRequest,
 	requestID, sessionID string,
-	messages []*gendomain.Message,
+	messages []*pkgdomain.Message,
 	stopSeq []string,
 	timeout int32,
-	genParams *gendomain.GenerationParams,
+	genParams *pkgdomain.GenerationParams,
 	serverIDs []int64,
 ) {
 	if *req.Stream {

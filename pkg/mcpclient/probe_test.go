@@ -43,7 +43,10 @@ func TestBuildServerProbeInMemoryMCP(t *testing.T) {
 	}
 	defer ss.Close()
 
-	c := mcp.NewClient(&mcp.Implementation{Name: "gen", Version: "1.0.0"}, nil)
+	c := mcp.NewClient(&mcp.Implementation{
+		Name:    "coder",
+		Version: "1.0.0",
+	}, nil)
 	cs, err := c.Connect(ctx, ct, nil)
 	if err != nil {
 		t.Fatal(err)

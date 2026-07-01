@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/magomedcoder/lmpkg/domain"
-	"github.com/magomedcoder/lmpkg/logger"
+	"github.com/magomedcoder/coder-server/pkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/logger"
 )
 
 type RunnerState struct {

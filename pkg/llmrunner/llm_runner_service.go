@@ -6,11 +6,11 @@ import (
 	"io"
 	"strings"
 
+	"github.com/magomedcoder/coder-server/pkg/document"
+	"github.com/magomedcoder/coder-server/pkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/logger"
+	"github.com/magomedcoder/coder-server/pkg/prompt"
 	"github.com/magomedcoder/lm-runner/pb/llmrunnerpb"
-	"github.com/magomedcoder/lmpkg/document"
-	"github.com/magomedcoder/lmpkg/domain"
-	"github.com/magomedcoder/lmpkg/logger"
-	"github.com/magomedcoder/lmpkg/prompt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

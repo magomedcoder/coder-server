@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"unicode/utf8"
 
-	"github.com/magomedcoder/lmpkg/logger"
+	"github.com/magomedcoder/coder-server/pkg/logger"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

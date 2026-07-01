@@ -13,7 +13,7 @@ func TruncateLLMReply(s string, maxRunes int) string {
 	var n int
 	for i := range s {
 		if n >= maxRunes {
-			return s[:i] + "\n\n[GEN: ответ обрезан по лимиту контекста]"
+			return s[:i] + "\n\n[Coder: ответ обрезан по лимиту контекста]"
 		}
 		n++
 	}

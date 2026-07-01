@@ -3,8 +3,8 @@ package toolloop
 import (
 	"testing"
 
-	"github.com/magomedcoder/lmpkg/domain"
-	"github.com/magomedcoder/lmpkg/mcpclient"
+	"github.com/magomedcoder/coder-server/pkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/mcpclient"
 )
 
 func TestResolveDeclaredToolNameBareMCPMatchesHexAlias(t *testing.T) {

@@ -1,7 +1,7 @@
 package mcpclient
 
 import (
-	"github.com/magomedcoder/lmpkg/mcpclient/domain"
+	"github.com/magomedcoder/coder-server/pkg/mcpclient/domain"
 	"testing"
 	"time"
 )

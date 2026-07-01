@@ -1,7 +1,7 @@
 package domain
 
-import gendomain "github.com/magomedcoder/lmpkg/domain"
+import "github.com/magomedcoder/coder-server/pkg/domain"
 
 func ErrRunnerModelNotLoaded() error {
-	return gendomain.ErrRunnerModelNotLoaded
+	return domain.ErrRunnerModelNotLoaded
 }

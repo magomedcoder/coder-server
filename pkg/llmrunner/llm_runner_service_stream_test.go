@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/magomedcoder/coder-server/pkg/domain"
 	"github.com/magomedcoder/lm-runner/pb/llmrunnerpb"
-	"github.com/magomedcoder/lmpkg/domain"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"

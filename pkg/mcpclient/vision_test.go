@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/magomedcoder/lmpkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 func TestLastUserMessageHasVisionAttachment(t *testing.T) {

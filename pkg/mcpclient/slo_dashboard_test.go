@@ -55,7 +55,7 @@ func TestWritePrometheusMetricsIncludesSLOMetrics(t *testing.T) {
 	}
 
 	out := b.String()
-	if !strings.Contains(out, "gen_mcp_server_slo_met") {
+	if !strings.Contains(out, "coder_mcp_server_slo_met") {
 		t.Fatalf("отсутствует SLO metric in output: %s", out)
 	}
 

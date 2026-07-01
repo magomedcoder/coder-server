@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/magomedcoder/coder-server/pkg/domain"
 	"github.com/magomedcoder/lm-runner/pb/llmrunnerpb"
-	"github.com/magomedcoder/lmpkg/domain"
 )
 
 func TestDomainMessagesToProto_preservesVisionAttachmentFields(t *testing.T) {

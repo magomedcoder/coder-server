@@ -1,5 +1,4 @@
-# lmpkg
-
+# coder-server/pkg
 Общая Go-библиотека оркестрации LLM: agent/tool-loop, MCP-клиент, промпты, RAG, доменные типы и gRPC-клиент к **lm-runner**.
 
 Процесс **lm-runner** нужно **запустить отдельно**.
@@ -11,7 +10,7 @@
 	ваш Go-сервис  -------------------------------> lm-runner (LLM)
 			|					SendMessage, Embed, ...
         	|
-        	|  tools/MCP/RAG/сессии - пакеты lmpkg/*
+        	|  tools/MCP/RAG/сессии - пакеты coder-server/pkg/*
         	|
 			---> lite-mcp-servers (опционально, отдельные процессы)
 ```
@@ -24,14 +23,14 @@ module test.test/test
 go 1.26
 
 require (
-    github.com/magomedcoder/lmpkg v0.x.x
+    github.com/magomedcoder/coder-server/pkg v0.x.x
 )
 ```
 
-или clone https://github.com/magomedcoder/lmpkg.git
+или clone https://github.com/magomedcoder/coder-server/pkg.git
 
 ```go
-replace github.com/magomedcoder/lmpkg => ../lmpkg
+replace github.com/magomedcoder/coder-server/pkg => ../coder-server/pkg
 ```
 
 ## Минимальное подключение к lm-runner
@@ -40,9 +39,9 @@ replace github.com/magomedcoder/lmpkg => ../lmpkg
 import (
     "context"
 
-    "github.com/magomedcoder/lmpkg/domain"
-    "github.com/magomedcoder/lmpkg/llmrunner"
-    "github.com/magomedcoder/lmpkg/toolloop"
+    "github.com/magomedcoder/coder-server/pkg/domain"
+    "github.com/magomedcoder/coder-server/pkg/llmrunner"
+    "github.com/magomedcoder/coder-server/pkg/toolloop"
 )
 
 func main() {
@@ -94,11 +93,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/magomedcoder/lmpkg/agent"
-	"github.com/magomedcoder/lmpkg/domain"
-	"github.com/magomedcoder/lmpkg/llmrunner"
-	"github.com/magomedcoder/lmpkg/prompt"
-	"github.com/magomedcoder/lmpkg/toolloop"
+	"github.com/magomedcoder/coder-server/pkg/agent"
+	"github.com/magomedcoder/coder-server/pkg/domain"
+	"github.com/magomedcoder/coder-server/pkg/llmrunner"
+	"github.com/magomedcoder/coder-server/pkg/prompt"
+	"github.com/magomedcoder/coder-server/pkg/toolloop"
 )
 
 type memStore struct {

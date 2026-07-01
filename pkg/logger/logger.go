@@ -67,7 +67,7 @@ var Default = New(LevelInfo, true)
 func New(minLevel int, useColor bool) *Logger {
 	return &Logger{
 		level:    minLevel,
-		prefix:   "[Gen] ",
+		prefix:   "[Coder] ",
 		useColor: useColor,
 	}
 }

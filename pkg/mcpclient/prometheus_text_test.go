@@ -12,21 +12,21 @@ func TestWritePrometheusMetricsStable(t *testing.T) {
 	}
 
 	s := buf.String()
-	if !strings.Contains(s, "gen_mcp_list_tools_ok") {
+	if !strings.Contains(s, "coder_mcp_list_tools_ok") {
 		t.Fatalf("отсутствует metric: %s", s)
 	}
 
-	if !strings.HasPrefix(s, "# TYPE gen_mcp_") {
+	if !strings.HasPrefix(s, "# TYPE coder_mcp_") {
 		t.Fatalf("неожиданное output: %s", s)
 	}
 
-	if !strings.Contains(s, "gen_mcp_call_tool_duration_seconds_bucket") {
+	if !strings.Contains(s, "coder_mcp_call_tool_duration_seconds_bucket") {
 		t.Fatalf("ожидалось histogram metrics: %s", s)
 	}
 }
 
 func TestPrometheusMetricNameSanitize(t *testing.T) {
-	if prometheusMetricName("call_tool_server_1_ok") != "gen_mcp_call_tool_server_1_ok" {
+	if prometheusMetricName("call_tool_server_1_ok") != "coder_mcp_call_tool_server_1_ok" {
 		t.Fatal()
 	}
 }

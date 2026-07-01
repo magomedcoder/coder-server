@@ -9,7 +9,7 @@ import (
 	"github.com/magomedcoder/coder-server/internal/config"
 	"github.com/magomedcoder/coder-server/internal/domain"
 	"github.com/magomedcoder/coder-server/internal/mapper"
-	gendomain "github.com/magomedcoder/lmpkg/domain"
+	pkgdomain "github.com/magomedcoder/coder-server/pkg/domain"
 )
 
 type AgentService struct {
@@ -127,15 +127,15 @@ func (s *AgentService) systemPrompt() string {
 	return base
 }
 
-func (s *AgentService) agentGenerationParams() *gendomain.GenerationParams {
+func (s *AgentService) agentGenerationParams() *pkgdomain.GenerationParams {
 	maxTokens := int32(s.cfg.MaxTokens)
 	temp := float32(s.cfg.Temperature)
 	rfType := "json_object"
 
-	return &gendomain.GenerationParams{
+	return &pkgdomain.GenerationParams{
 		MaxTokens:      &maxTokens,
 		Temperature:    &temp,
-		ResponseFormat: &gendomain.ResponseFormat{Type: rfType},
+		ResponseFormat: &pkgdomain.ResponseFormat{Type: rfType},
 	}
 }
 
